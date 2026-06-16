@@ -1,0 +1,163 @@
+"""
+Molecular graph dataset — atomic_num + tetrahedral_chirality + electronegativity.
+Supports SDF files (.sdf and .sdf.gz) and CSV files with SMILES column.
+"""
+import csv
+import gzip
+import os
+from typing import List, Optional
+
+import torch
+from rdkit import Chem
+from torch_geometric.data import Data
+from tqdm import tqdm
+
+
+def is_valid_graph(graph: Data) -> bool:
+    """Check if a graph is valid for training."""
+    if graph.num_nodes == 0 or graph.num_nodes < 2:
+        return False
+    if graph.edge_index.size(1) == 0:
+        return False
+    if graph.x.size(0) != graph.num_nodes:
+        return False
+    if torch.isnan(graph.x).any() or torch.isinf(graph.x).any():
+        return False
+    if graph.edge_attr is not None:
+        if torch.isnan(graph.edge_attr).any() or torch.isinf(graph.edge_attr).any():
+            return False
+    return True
+
+
+class MolToGraphConverter:
+    """
+    Converts RDKit molecules to PyTorch Geometric Data graphs.
+    Node features: ['atomic_num', 'chirality', 'electronegativity'] (3D).
+    Edge features: [bond_type, bond_direction] (2D).
+    """
+
+    ELECTRONEGATIVITY = {
+        1: 2.20, 3: 0.98, 5: 2.04, 6: 2.55, 7: 3.04, 8: 3.44, 9: 3.98,
+        11: 0.93, 12: 1.31, 13: 1.61, 14: 1.90, 15: 2.19, 16: 2.58, 17: 3.16,
+        19: 0.82, 20: 1.00, 34: 2.55, 35: 2.96, 53: 2.66,
+    }
+
+    def convert(self, mol: Chem.Mol) -> Data:
+
+        node_features = []
+        for atom in mol.GetAtoms():
+            an = atom.GetAtomicNum()
+            node_features.append([
+                float(an),
+                float(atom.GetChiralTag()),
+                float(self.ELECTRONEGATIVITY.get(an, 2.0)),
+            ])
+        node_features = torch.tensor(node_features, dtype=torch.float)
+        edge_index, edge_features = [], []
+        for bond in mol.GetBonds():
+            i, j = bond.GetBeginAtomIdx(), bond.GetEndAtomIdx()
+            edge_index.extend([[i, j], [j, i]])
+            fe = [float(bond.GetBondType()), float(bond.GetBondDir())]
+            edge_features.extend([fe, fe])
+        edge_index = torch.tensor(edge_index, dtype=torch.long).t().contiguous()
+        edge_features = torch.tensor(edge_features, dtype=torch.float)
+        return Data(x=node_features, edge_index=edge_index, edge_attr=edge_features, num_nodes=mol.GetNumAtoms())
+
+
+class MolecularGraphDataset:
+    """Dataset for constructing molecular graphs from SDF files."""
+
+    def __init__(self, sdf_file: str, max_molecules: Optional[int] = None):
+        self.sdf_file = sdf_file
+        self.max_molecules = max_molecules
+        self.molecules = []
+        self._converter = MolToGraphConverter()
+        self._load_molecules(max_molecules)
+
+    def _load_molecules(self, max_molecules: Optional[int] = None) -> None:
+        if not os.path.exists(self.sdf_file):
+            raise FileNotFoundError(f"SDF file not found: {self.sdf_file}")
+        print(f"Loading molecules from {self.sdf_file}...")
+        count = 0
+        if self.sdf_file.endswith(".gz"):
+            with gzip.open(self.sdf_file, "rb") as gz_file:
+                supplier = Chem.ForwardSDMolSupplier(gz_file, removeHs=False)
+                for mol in supplier:
+                    if mol is not None:
+                        self.molecules.append(mol)
+                        count += 1
+                        if max_molecules and count >= max_molecules:
+                            break
+        else:
+            supplier = Chem.SDMolSupplier(self.sdf_file, removeHs=False)
+            for mol in tqdm(supplier, desc="Loading molecules"):
+                if mol is not None:
+                    self.molecules.append(mol)
+                    count += 1
+                    if max_molecules and count >= max_molecules:
+                        break
+        print(f"Loaded {len(self.molecules):,} molecules")
+
+    def mol_to_graph(self, mol: Chem.Mol) -> Data:
+        return self._converter.convert(mol)
+
+    def get_all_graphs(self) -> List[Data]:
+        graphs = []
+        for mol in tqdm(self.molecules, desc="Converting to graphs"):
+            try:
+                graphs.append(self.mol_to_graph(mol))
+            except Exception:
+                continue
+        return graphs
+
+    def __len__(self) -> int:
+        return len(self.molecules)
+
+    def __getitem__(self, idx: int) -> Data:
+        return self.mol_to_graph(self.molecules[idx])
+
+
+class MolecularGraphDatasetCSV:
+    """Dataset for constructing molecular graphs from CSV files with SMILES."""
+
+    def __init__(self, csv_file: str, max_molecules: Optional[int] = None):
+        self.csv_file = csv_file
+        self.max_molecules = max_molecules
+        self.molecules = []
+        self._converter = MolToGraphConverter()
+        self._load_molecules(max_molecules)
+
+    def _load_molecules(self, max_molecules: Optional[int] = None) -> None:
+        if not os.path.exists(self.csv_file):
+            raise FileNotFoundError(f"CSV file not found: {self.csv_file}")
+        print(f"Loading molecules from {self.csv_file}...")
+        with open(self.csv_file, "r", encoding="utf-8", newline="") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                smiles = (row.get("SMILES") or row.get("smiles") or "").strip()
+                if not smiles:
+                    continue
+                mol = Chem.MolFromSmiles(smiles)
+                if mol is not None:
+                    self.molecules.append(mol)
+                if max_molecules and len(self.molecules) >= max_molecules:
+                    break
+        print(f"Loaded {len(self.molecules):,} molecules")
+
+    def mol_to_graph(self, mol: Chem.Mol) -> Data:
+        return self._converter.convert(mol)
+
+    def get_all_graphs(self) -> List[Data]:
+        graphs = []
+        for mol in tqdm(self.molecules, desc="Converting to graphs"):
+            try:
+                graphs.append(self.mol_to_graph(mol))
+            except Exception:
+                continue
+        return graphs
+
+    def __len__(self) -> int:
+        return len(self.molecules)
+
+    def __getitem__(self, idx: int) -> Data:
+        return self.mol_to_graph(self.molecules[idx])

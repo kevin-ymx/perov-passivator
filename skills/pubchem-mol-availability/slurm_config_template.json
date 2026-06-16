@@ -1,0 +1,17 @@
+{
+  "confirmed": false,
+  "job_name": "pubchem-mol-availability",
+  "account": "YOUR_ACCOUNT",
+  "partition": "short",
+  "nodes": 1,
+  "cpus_per_task": 64,
+  "time_limit": "24:00:00",
+  "output_log": "/scratch/yeming/pubchem-mol-availability/logs/mol-availability-%j.out",
+  "error_log": "/scratch/yeming/pubchem-mol-availability/logs/mol-availability-%j.err",
+  "bashrc": "/home/yeming/.bashrc",
+  "secrets_file": "/home/yeming/.secrets/openai",
+  "conda_env": "/scratch/yeming/conda_envs/ai4m",
+  "run_script": "/home/yeming/skills/pubchem-mol-availability/scripts/run_availability.py",
+  "run_config_path": "/scratch/yeming/pubchem-mol-availability/run_configs/run_config.json",
+  "rendered_script_path": "/scratch/yeming/pubchem-mol-availability/jobs/mol_availability.slurm"
+}

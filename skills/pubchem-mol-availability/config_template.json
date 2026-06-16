@@ -1,0 +1,33 @@
+{
+  "confirmed": false,
+  "io": {
+    "input": "/REPLACE/with/user-provided/input.csv",
+    "output": "/scratch/yeming/pubchem-mol-availability/data/availability.csv",
+    "dropped_output": "/scratch/yeming/pubchem-mol-availability/data/dropped_liquids.csv",
+    "cache_dir": "/scratch/yeming/pubchem-mol-availability/cache",
+    "workers": 64,
+    "cid_column": null,
+    "smiles_column": null
+  },
+  "lookup": {
+    "request_rate_per_sec": 5.0,
+    "max_retries": 4,
+    "timeout_sec": 30,
+    "halide_only": true,
+    "report_neutral": true,
+    "row_granularity": "per_salt",
+    "mp_solid_threshold_c": 25.0
+  },
+  "llm": {
+    "enabled": true,
+    "model": "gpt-5.5",
+    "temperature": 0.0,
+    "confidence_threshold": 0.7,
+    "api_key_env": "OPENAI_API_KEY",
+    "base_url": null,
+    "max_retries": 3
+  },
+  "filter": {
+    "drop_liquids": true
+  }
+}

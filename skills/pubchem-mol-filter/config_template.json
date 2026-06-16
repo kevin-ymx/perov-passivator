@@ -1,0 +1,27 @@
+{
+  "confirmed": false,
+  "io": {
+    "mode": "shards",
+    "input": null,
+    "output": null,
+    "input_dir": "/REPLACE/with/user-provided/input/shards/dir",
+    "output_dir": "/scratch/yeming/pubchem-mol-filter/data/output_shards",
+    "workers": 64,
+    "save_config_used": "/scratch/yeming/pubchem-mol-filter/run_configs/filter_config_used.json"
+  },
+  "filters": {
+    "require_sanitization": true,
+    "require_single_component": true,
+    "allowed_elements": ["H", "C", "N", "O", "S", "P", "F", "Cl", "Br", "I"],
+    "require_any_elements": ["N", "O", "S", "P"],
+    "require_all_elements": [],
+    "forbidden_elements": [],
+    "max_heavy_atoms": 30,
+    "reject_radicals": true,
+    "max_ring_size": 6,
+    "max_mol_weight": 500.0,
+    "reject_zwitterion": true,
+    "reject_isotopes": true,
+    "require_heteroatom_lone_pair": true
+  }
+}

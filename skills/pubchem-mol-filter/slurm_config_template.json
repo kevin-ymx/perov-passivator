@@ -1,0 +1,16 @@
+{
+  "confirmed": false,
+  "job_name": "pubchem-mol-filter",
+  "account": "YOUR_ACCOUNT",
+  "partition": "cpu",
+  "nodes": 1,
+  "cpus_per_task": 64,
+  "time_limit": "24:00:00",
+  "output_log": "/scratch/yeming/pubchem-mol-filter/logs/mol-filter-%j.out",
+  "error_log": "/scratch/yeming/pubchem-mol-filter/logs/mol-filter-%j.err",
+  "bashrc": "/home/yeming/.bashrc",
+  "conda_env": "/scratch/yeming/conda_envs/ai4m",
+  "filter_script": "/home/yeming/skills/pubchem-mol-filter/scripts/filter_molecules_configurable.py",
+  "run_config_path": "/scratch/yeming/pubchem-mol-filter/run_configs/run_config.json",
+  "rendered_script_path": "/scratch/yeming/pubchem-mol-filter/jobs/mol_filter.slurm"
+}

@@ -1,0 +1,5 @@
+# Runtime dependencies for the PubChem molecule filter scripts.
+# Install with: pip install -r requirements.txt
+# (or: conda install -c conda-forge rdkit tqdm)
+rdkit
+tqdm

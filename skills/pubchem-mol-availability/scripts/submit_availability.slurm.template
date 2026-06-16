@@ -1,0 +1,20 @@
+#!/bin/bash
+# Slurm batch script for pubchem-mol-availability (generated from submit_availability.slurm.template)
+# Do not edit placeholders by hand — fill slurm_config.json and run render_slurm_script.py
+
+#SBATCH --job-name={{JOB_NAME}}
+#SBATCH --account={{ACCOUNT}}
+#SBATCH --partition={{PARTITION}}
+#SBATCH --nodes={{NODES}}
+#SBATCH --cpus-per-task={{CPUS_PER_TASK}}
+#SBATCH --time={{TIME_LIMIT}}
+#SBATCH --output={{OUTPUT_LOG}}
+#SBATCH --error={{ERROR_LOG}}
+
+set -euo pipefail
+
+source {{BASHRC}}
+{{SECRETS_SOURCE}}
+conda activate {{CONDA_ENV}}
+
+python {{RUN_SCRIPT}} --config {{RUN_CONFIG_PATH}}
