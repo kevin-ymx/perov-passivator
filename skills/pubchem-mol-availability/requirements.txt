@@ -1,8 +1,0 @@
-# Runtime dependencies for the pubchem-mol-availability skill.
-# Install with: pip install -r requirements.txt
-# (or: conda install -c conda-forge rdkit requests pandas tqdm ; pip install openai)
-rdkit
-requests
-pandas
-tqdm
-openai
