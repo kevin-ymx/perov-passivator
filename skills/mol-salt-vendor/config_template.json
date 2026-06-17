@@ -1,0 +1,22 @@
+{
+  "confirmed": false,
+  "io": {
+    "input": "/REPLACE/with/your/molecules.csv",
+    "cid_column": "cid",
+    "smiles_column": "smiles",
+    "name_column": null,
+    "output_jsonl": "mol_salt_vendor_results.jsonl",
+    "output_csv": "mol_salt_vendor_table.csv",
+    "batch_size": 200,
+    "limit": null,
+    "resume": true
+  },
+  "llm": {
+    "model": "gpt-5.5",
+    "use_web_search": true,
+    "web_search_tool_type": "web_search",
+    "max_vendors_per_form": 3,
+    "sleep_between_calls": 1.0,
+    "max_retries": 3
+  }
+}

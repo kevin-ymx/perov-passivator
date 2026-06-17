@@ -51,7 +51,7 @@ DEFAULT_CHECKPOINT = "/kfs3/scratch/yeming/ai4m/prediction/checkpoints/best_mode
 EMBEDDING_DIM = 256
 K_NEIGHBORS = 21
 DIAMINE_QUERY_NAMES = ("Ethylenediamine (EDA)", "1,3-Propanediamine (PDA)", "1,4-Diaminocyclohexane (CyDA)", "Piperazine")
-DIAMINE_K_NEIGHBORS = 101
+DIAMINE_K_NEIGHBORS = 501
 CHUNK_SIZE = 100000  # Rows per chunk when reading reference CSVs
 
 

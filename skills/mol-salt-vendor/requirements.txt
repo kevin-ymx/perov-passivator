@@ -1,0 +1,4 @@
+# Runtime dependencies for the mol-salt-vendor skill.
+# Install with: pip install -r requirements.txt
+openai>=1.40
+tqdm
