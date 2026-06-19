@@ -3,7 +3,7 @@
 Deep learning pipeline for **Lewis-base passivator** discovery: contrastive self-supervised pretraining of a charge-aware **GIN-E** graph encoder on large molecular corpora, fine-tuning for **perovskite binding energy** prediction, and downstream search/analysis over candidate molecules.
 
 <p align="center">
-  <img src="docs/figures/pipeline_summary.png" alt="perov-passivator pipeline summary: PubChem filtering, GIN-E SSL, downstream binding-energy training, inference, kNN search, analysis, and agent skills" width="900"/>
+  <img src="docs/figures/workflow.png" alt="perov-passivator pipeline summary: PubChem filtering, GIN-E SSL, downstream binding-energy training, inference, kNN search, analysis, and agent skills" width="700"/>
 </p>
 <p align="center"><em>Pipeline summary — from PubChem-scale molecules to binding-energy prediction, neighbor search, and procurement-oriented analysis.</em></p>
 
