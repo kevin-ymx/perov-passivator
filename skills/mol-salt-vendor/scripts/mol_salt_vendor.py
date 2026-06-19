@@ -63,7 +63,7 @@ sold form, whether powder/solid or liquid). Give a short string like \
 - "free_base_vendor_notes": brief notes (e.g. "sold as anhydrous liquid", "discontinued").
 - For each halide salt consider: HCl salt (hydrochloride), HBr salt (hydrobromide), and \
 HI/iodide salt (hydroiodide or the iodide salt). For each: "found" is true only if that \
-salt is a real, known compound AND you found evidence of it (commercial or literature); \
+salt is a real, known compound AND you found evidence of it (commercial); \
 "vendor" lists suppliers actually selling it (short string, empty if none); "source" is \
 the URL(s) you relied on.
 - Prefer accuracy over completeness: if unsure, use empty string / null and lower the \
@@ -83,7 +83,7 @@ JSON schema:
   "free_base_vendor_notes": str,
   "HCl_salt": {"found": bool, "vendor": str, "source": str},
   "HBr_salt": {"found": bool, "vendor": str, "source": str},
-  "HI_or_iodide_salt": {"found": bool, "vendor": str, "source": str},
+  "HI_salt": {"found": bool, "vendor": str, "source": str},
   "confidence": "high"|"medium"|"low",
   "notes": str
 }
@@ -101,7 +101,7 @@ class IOConfig:
     name_column: Optional[str] = None
     output_jsonl: str = "mol_salt_vendor_results.jsonl"
     output_csv: str = "mol_salt_vendor_table.csv"
-    batch_size: int = 200
+    batch_size: int = 50
     limit: Optional[int] = None
     resume: bool = True
 
@@ -400,7 +400,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--output-jsonl", type=str, default=None)
     p.add_argument("--output-csv", type=str, default=None)
     p.add_argument("--batch-size", type=int, default=None,
-                   help="Molecules per batch (default 200); CSV is flushed after each batch.")
+                   help="Molecules per batch (default 50); CSV is flushed after each batch.")
     p.add_argument("--limit", type=int, default=None)
     p.add_argument("--no-resume", action="store_true")
 

@@ -9,8 +9,7 @@ description: >-
   found/vendor/source, confidence, notes). The user-specified CID and SMILES
   columns are passed through to the output. Use when the user asks for physical
   form, commercial form, salt form, or vendor/supplier/availability info for a
-  list of molecules given by CID and/or SMILES (and optional name). Always build a
-  run config from the user prompt and present it for approval before running;
+  list of molecules given by CID and/or SMILES (and optional name). Always build a run config from the user prompt and present it for approval before running;
   execution is blocked until "confirmed": true.
 ---
 
@@ -78,7 +77,7 @@ improves identification accuracy.
     "name_column": null,
     "output_jsonl": "mol_salt_vendor_results.jsonl",
     "output_csv": "mol_salt_vendor_table.csv",
-    "batch_size": 200,
+    "batch_size": 100,
     "limit": null,
     "resume": true
   },
@@ -101,7 +100,7 @@ improves identification accuracy.
 | `name_column` | Optional column with a chemical name (improves vendor matching) |
 | `output_jsonl` | Full structured result per molecule (one JSON object per line) |
 | `output_csv` | The web-search table (fixed schema below) |
-| `batch_size` | Molecules per batch (default `200`); the CSV is flushed and a progress summary printed after each batch |
+| `batch_size` | Molecules per batch (default `100`); the CSV is flushed and a progress summary printed after each batch |
 | `limit` | Process only the first N rows (`null` = all) — useful for a test run |
 | `resume` | Skip molecules already present in `output_jsonl` |
 
@@ -184,9 +183,9 @@ HCl_salt_source
 HBr_salt_found
 HBr_salt_vendor
 HBr_salt_source
-HI_or_iodide_salt_found
-HI_or_iodide_salt_vendor
-HI_or_iodide_salt_source
+HI_salt_found
+HI_salt_vendor
+HI_salt_source
 confidence
 notes
 ```
@@ -223,7 +222,7 @@ record (including resumed ones).
 
 ## Batching
 
-Molecules are processed in batches of `io.batch_size` (default **200**). Each
+Molecules are processed in batches of `io.batch_size` (default **100**). Each
 molecule still gets its own LLM + web-search call (one compound per call, for
 quality); `batch_size` controls checkpoint granularity, not how many compounds
 share a prompt. After every batch the CSV is rewritten and a progress line is

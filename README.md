@@ -1,106 +1,181 @@
-# Lewis Base Binding Energy Prediction (LBPP)
+# perov-passivator
 
-A deep learning framework for predicting binding energies of Lewis base molecules on perovskite surfaces.
+Deep learning pipeline for **Lewis-base passivator** discovery: contrastive self-supervised pretraining of a charge-aware **GIN-E** graph encoder on large molecular corpora, fine-tuning for **perovskite binding energy** prediction, and downstream search/analysis over candidate molecules.
+
+<p align="center">
+  <img src="docs/figures/pipeline_summary.png" alt="perov-passivator pipeline summary: PubChem filtering, GIN-E SSL, downstream binding-energy training, inference, kNN search, analysis, and agent skills" width="900"/>
+</p>
+<p align="center"><em>Pipeline summary — from PubChem-scale molecules to binding-energy prediction, neighbor search, and procurement-oriented analysis.</em></p>
 
 ## Overview
 
-This project uses contrastive self-supervised learning to pre-train a graph neural network encoder on large-scale molecular data, then fine-tunes it for binding energy prediction.
+| Stage | What it does |
+|-------|----------------|
+| **SSL pretraining** | Learn molecular representations from PubChem-scale SMILES via augmented graph pairs (NT-Xent) |
+| **Downstream fine-tuning** | Predict adsorption / binding energy from merged DFT + structure CSVs |
+| **Inference** | Batch or single-molecule binding energy from SMILES; optional embedding export |
+| **kNN search** | Find nearest neighbors in SSL or finetuned embedding space |
+| **Analysis** | Anchor functional-group statistics, t-SNE, error plots, literature mining |
+| **Agent skills** | Reusable Cursor skills for PubChem filtering and LLM vendor/salt lookup |
+
+Central configuration lives in [`config.py`](config.py) (data paths, model dims, training hyperparameters). Paths default to HPC scratch; override for local runs.
 
 ## Installation
 
 ```bash
-git clone <repository-url>
-cd LBPP
+git clone https://github.com/kevin-ymx/perov-passivator.git
+cd perov-passivator
 pip install -r requirements.txt
 ```
 
-**Requirements**: Python 3.8+, PyTorch 2.0+, PyTorch Geometric, RDKit. For anchor functional-group analysis, SciPy is recommended (Hungarian assignment for DFT-to-SMILES atom mapping when the anchor element appears more than once).
+**Core stack:** Python 3.8+, PyTorch 2.0+, PyTorch Geometric, RDKit, NumPy, SciPy, scikit-learn, matplotlib, tqdm.
+
+Optional: `opentsne`, `plotly` (t-SNE / interactive plots); `openai` (literature extraction and `mol-salt-vendor` skill).
+
+On Windows, use `python3` if `python` points to Python 2.
 
 ## Quick start
 
-### Predict binding energy
+### 1. SSL pretraining
 
 ```bash
-# Single molecule
-python inference.py --smiles "CCO" --donor_type "hydroxyl"
-
-# Batch prediction
-python inference.py --csv input.csv --output predictions.csv
-```
-
-### Train SSL model
-
-```bash
-# 1. Build graph cache from molecular CSV
+# Build augmented graph cache from a PubChem CSV (PUBCHEM_COMPOUND_CID, SMILES)
 python dataset/ssl/build_graph_cache.py --csv_file molecules.csv --cache_dir ./cache
 
-# 2. Train SSL encoder
+# Train GIN-E encoder (set config.use_cache = True in config.py when using cache)
 python train_ssl.py
 ```
 
-### Binding-anchor statistics (violin plots)
+Checkpoint: `checkpoints/best_model.pt`.
 
-`analyze_binding_anchors.py` reads a merged downstream CSV and writes violin plots plus per-group CSV summaries under `logs/binding_anchor_stats` by default (or `--output_dir`).
+### 2. Downstream binding-energy training
 
-**Plot 1 — anchor combinations (N / O / S / P only)**  
-Groups rows by the *set* of anchoring elements in {N, O, S, P} (e.g. `N`, `N+O`), using `pb_bond_encoding` and atomic numbers from `adsorbate_structure`.
+```bash
+python train_downstream.py
+```
 
-**Plots 2–5 — one plot per element N, O, S, P**  
-Only rows with **exactly one** anchoring atom in {N, O, S, P}. Additional anchors on other elements (e.g. H, Cl, C) are allowed and ignored. Rows with two or more anchors in {N, O, S, P} (e.g. N+O) are excluded from these plots.
+Uses `config.downstream_csv` (merged CSV with `cid`, `SMILES`, `adsorption_energy`, `pb_bond_encoding`, `adsorbate_structure`, etc.). Best model: `checkpoints/downstream/downstream_best_model.pt`.
 
-Functional groups for plots 2–5 are **detected with RDKit** at the resolved anchor atom (SMILES + optional geometric mapping from DFT coordinates), **not** from the CSV `functional_group` column.
+### 3. Predict binding energy
+
+```bash
+# Single SMILES
+python inference_Eb.py --smiles "CCO"
+
+# Batch CSV
+python inference_Eb.py --csv input.csv --output predictions.csv
+
+# Shard directory of filtered PubChem CSVs (+ optional embeddings only)
+python inference_Eb.py --filtered_csv ./filtered_csv_latest --output_dir ./filtered_csv_Eb
+```
+
+### 4. kNN in embedding space
+
+```bash
+# Nearest neighbors in SSL embedding space
+python knn_sslembedding_search.py \
+  --query_csv molecules_cid_smiles.csv \
+  --embedding_dir path/to/embeddings \
+  --checkpoint checkpoints/best_model.pt \
+  --output knn_results.csv
+
+# Diamine-focused query subset (EDA, PDA, CyDA, Piperazine)
+python knn_sslembedding_search.py --diamine_queries --output knn_diamine.csv
+```
+
+Related: `knn_finetunedembedding_search.py`, `knn_strong_binders.py`, `filter_AL_knn.py`.
+
+## Analysis & visualization
+
+### Binding-anchor statistics
+
+`analyze_binding_anchors.py` reads a merged downstream CSV and writes violin plots plus per-group CSV summaries.
 
 ```bash
 python analyze_binding_anchors.py --input path/to/merged.csv --output_dir logs/binding_anchor_stats
-python analyze_binding_anchors.py --min_group_size 5
-python analyze_binding_anchors.py --energy_min -3.0 --energy_max 0
+python analyze_binding_anchors.py --min_group_size 5 --energy_min -3.0 --energy_max 0
 ```
 
-| Flag | Meaning |
-|------|---------|
-| `--input` | Merged CSV path (defaults to `config.downstream_csv` if set) |
-| `--output_dir` | Where PNGs and stats CSVs are written |
-| `--min_group_size` | Drop groups with fewer than this many rows (default: 3) |
-| `--energy_min` / `--energy_max` | Optional adsorption energy window in eV (inclusive) |
+**Plot 1** — anchor combinations (N / O / S / P). **Plots 2–5** — single-anchor functional groups per element (RDKit-detected at the resolved anchor atom).
 
-**Expected columns** (names resolved case-insensitively): `cid`, `SMILES`, `pb_bond_encoding`, `adsorption_energy`, `adsorbate_structure` (JSON with `elements.number` and ideally `coords.3d`). `functional_group` is optional and not used for plots 2–5.
+Other plotting scripts: `visualize_tsne.py`, `visualize_tsne_downstream.py`, `plot_binding_energy_histogram.py`, `plot_test_error_violin.py`, `plot_knn_molecule_images.py`, `plot_strong_binder_sample.py`.
 
-**Outputs**: `violin_anchor_combinations.png`, `stats_anchor_combinations.csv`, and for each of N, O, S, P: `violin_single_anchor_<E>_by_functional_group.png` and `stats_single_anchor_<E>.csv`.
+## Literature pipeline
+
+Scripts under `dataset/literature/` extract passivator molecules from paper abstracts (LLM + PubChem lookup):
+
+- `abs_extract.py` — parse WOS-style abstracts → JSON/CSV
+- `clean_molecule_names.py` — filter generic vs specific molecule names
+- `journal_summary.py`, `plot_journal_summary.py` — journal-level stats
+
+Set `OPENAI_API_KEY` in the environment (never commit keys).
+
+## Comparison experiments
+
+Self-contained ablation folders mirror the main pipeline with different node-feature sets:
+
+| Folder | Focus |
+|--------|--------|
+| `comparison_2feat/` | Two-feature encoder variant |
+| `comparison_3feat_coordination/` | + coordination number |
+| `comparison_3feat_electronegativity/` | + electronegativity |
+| `comparison_3feat_partial_charge/` | + partial charge |
+
+Each contains its own `config.py`, `train_ssl.py`, `train_downstream.py`, and Slurm inference scripts.
+
+## Agent skills
+
+Portable skills under [`skills/`](skills/) for Cursor and other agents. See [`skills/README.md`](skills/README.md).
+
+| Skill | Purpose |
+|-------|---------|
+| [`pubchem-mol-filter`](skills/pubchem-mol-filter/SKILL.md) | Configurable RDKit filtering of PubChem CSV shards (local or HPC Slurm) |
+| [`mol-salt-vendor`](skills/mol-salt-vendor/SKILL.md) | OpenAI + web search: free-base physical form, vendors, HCl/HBr/HI salt availability (local, API key) |
 
 ## Project structure
 
 ```
-LBPP/
-├── config.py                 # Configuration parameters
-├── train_ssl.py              # SSL training script
-├── train_downstream.py       # Downstream binding prediction training
-├── inference.py              # Binding energy prediction
-├── analyze_binding_anchors.py  # Anchor / functional-group violin statistics
-├── visualize_tsne.py         # t-SNE of embeddings (literature overlays)
-├── visualize_tsne_downstream.py
+perov-passivator/
+├── config.py                      # Shared configuration
+├── train_ssl.py                   # SSL pretraining
+├── train_downstream.py            # Binding-energy fine-tuning
+├── inference_Eb.py                # Binding energy inference (+ embeddings)
+├── inference_ssl.py               # SSL embedding export
+├── knn_sslembedding_search.py     # kNN in SSL embedding space
+├── analyze_binding_anchors.py     # Anchor / functional-group violins
 ├── models/
-│   └── gin_e.py              # GIN-E encoder model
-├── comparison_2feat/         # Two-feature comparison experiments
+│   ├── gin_e.py                   # GIN-E encoder
+│   └── downstream_model.py        # Encoder + MLP heads
 ├── dataset/
-│   ├── ssl/                  # SSL data processing
-│   │   ├── build_graph_cache.py
-│   │   ├── molecular_graph.py
-│   │   └── augmentation.py
-│   ├── prediction/           # Downstream prediction data
-│   │   ├── sampling_Eb.py
-│   │   └── funct_group.csv
-│   └── literature/           # Literature extraction
-│       └── abs_extract.py
-└── checkpoints/              # Saved models
+│   ├── ssl/                       # Graph cache, filters, augmentation
+│   ├── prediction/                # Downstream CSV prep, sampling
+│   └── literature/                # Abstract extraction & cleaning
+├── comparison_2feat/              # Feature ablation experiments
+├── comparison_3feat_*/            # 3-feature ablation variants
+├── checkpoints/                   # SSL + downstream model weights
+├── skills/                        # Agent skills (filter, vendor lookup)
+└── requirements.txt
 ```
 
 ## Data formats
 
-**SSL training**: CSV with `PUBCHEM_COMPOUND_CID` and `SMILES` columns.
+**SSL / PubChem filtering:** CSV with `PUBCHEM_COMPOUND_CID` (or `cid`) and `SMILES` (or `smiles`).
 
-**Binding energy prediction (inference-style CSV)**: e.g. `CID`, `SMILES`, `DonorType`, `mlp_adsorption_energy` (eV).
+**Downstream training / anchor analysis:** merged CSV with (case-insensitive) `cid`, `SMILES`, `pb_bond_encoding`, `adsorption_energy`, `adsorbate_structure` (JSON with `elements.number`, ideally `coords.3d`).
 
-**Merged downstream CSV** (for `analyze_binding_anchors.py` and training): includes `cid`, `SMILES`, `pb_bond_encoding`, `adsorption_energy`, `adsorbate_structure`, and related fields as produced by your merge pipeline.
+**Inference input:** CSV with SMILES; optional reference energy column for parity plots.
+
+**kNN query CSV:** `molecule_name`, `cid`, `smiles`, `journal` (see `knn_sslembedding_search.py`).
+
+## Configuration
+
+Edit [`config.py`](config.py) before training:
+
+- **SSL:** `csv_file`, `cache_dir`, `use_cache`, augmentation ratios, GIN-E architecture, `temperature`, epochs
+- **Downstream:** `downstream_csv`, graph cache paths, train/val/test splits, `freeze_pretrained_encoder`, rare-binder loss weight
+- **Inference:** checkpoint paths (via CLI flags or defaults in scripts)
+
+For extended architecture notes, see [`PROJECT_EXTENSION.md`](PROJECT_EXTENSION.md).
 
 ## License
 
@@ -108,4 +183,4 @@ MIT License
 
 ## Acknowledgments
 
-PyTorch Geometric, RDKit, PubChem
+PyTorch Geometric, RDKit, PubChem, OpenAI API (literature extraction and vendor lookup skill).

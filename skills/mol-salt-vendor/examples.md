@@ -19,7 +19,7 @@ Use gpt-5.5."
     "name_column": null,
     "output_jsonl": "mol_salt_vendor_results.jsonl",
     "output_csv": "mol_salt_vendor_table.csv",
-    "batch_size": 200,
+    "batch_size": 100,
     "limit": null,
     "resume": true
   },
@@ -47,16 +47,16 @@ Set `io.limit` to `5`. After it looks good, set `limit` back to `null` and rerun
 python "$SKILL_DIR/scripts/mol_salt_vendor.py" --config run_config.json --limit 5
 ```
 
-## Example 4 — large run, batches of 200
+## Example 4 — large run, batches of 100
 
-**Prompt:** "Process all of them in batches of 200."
+**Prompt:** "Process all of them in batches of 100."
 
-Keep `io.batch_size` at `200` (the default). The CSV is flushed and a progress
+Keep `io.batch_size` at `100` (the default). The CSV is flushed and a progress
 summary printed after each batch; interrupting and rerunning with `resume: true`
 continues where it left off. CLI form:
 
 ```bash
-python "$SKILL_DIR/scripts/mol_salt_vendor.py" --config run_config.json --batch-size 200
+python "$SKILL_DIR/scripts/mol_salt_vendor.py" --config run_config.json --batch-size 100
 ```
 
 ## Example 3 — custom column names + a name column

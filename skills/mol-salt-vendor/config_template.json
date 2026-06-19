@@ -7,7 +7,7 @@
     "name_column": null,
     "output_jsonl": "mol_salt_vendor_results.jsonl",
     "output_csv": "mol_salt_vendor_table.csv",
-    "batch_size": 200,
+    "batch_size": 100,
     "limit": null,
     "resume": true
   },
