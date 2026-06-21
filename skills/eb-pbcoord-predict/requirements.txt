@@ -1,0 +1,10 @@
+# This skill reuses the model backend's runtime (the codebase that provides
+# inference_Eb.py, config.py, and models/). Install that environment:
+#   torch, torch-geometric, rdkit, numpy, tqdm
+#
+# It imports BindingEnergyPredictor from inference_Eb.py at io.project_root,
+# so install the backend environment rather than a separate one. For example:
+#
+#   pip install -r <backend>/requirements.txt
+#
+# No additional packages are required by this skill itself.

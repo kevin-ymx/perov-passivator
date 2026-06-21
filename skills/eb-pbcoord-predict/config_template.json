@@ -1,0 +1,22 @@
+{
+  "confirmed": false,
+  "io": {
+    "queries": [
+      {"name": "Phenethylamine", "smiles": "NCCc1ccccc1", "cid": null}
+    ],
+    "query_csv": null,
+    "name_column": "molecule_name",
+    "cid_column": "cid",
+    "smiles_column": "smiles",
+    "project_root": null,
+    "output_csv": "eb_pbcoord_predictions.csv",
+    "sort_by_energy": true
+  },
+  "model": {
+    "downstream_checkpoint": "/REPLACE/with/downstream_best_model.pt",
+    "gin_e_checkpoint": "/REPLACE/with/gin_e_finetuned.pt",
+    "device": "auto",
+    "batch_size": 64,
+    "energy_threshold": null
+  }
+}

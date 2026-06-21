@@ -11,6 +11,7 @@ skills/
 ├── README.md                 # this file
 ├── pubchem-mol-filter/       # RDKit filtering of PubChem CSV shards
 ├── ssl-neighbor-search/      # GIN-E SSL embedding nearest-neighbor search
+├── eb-pbcoord-predict/       # GIN-E downstream Eb: Lewis base–Pb binding on FAPbI3
 └── mol-salt-vendor/          # LLM + web search: physical form & halide-salt vendors
 ```
 
@@ -40,6 +41,7 @@ Do **not** put custom skills in `~/.cursor/skills-cursor/` (Cursor built-ins onl
 |-------|---------|---------|
 | [pubchem-mol-filter](pubchem-mol-filter/SKILL.md) | Filter PubChem CSV/shard data with configurable RDKit criteria | Local or HPC (Slurm) |
 | [ssl-neighbor-search](ssl-neighbor-search/SKILL.md) | Nearest neighbors of user-given molecules (inline or CSV) in GIN-E SSL embedding space; emits a dedup `cid`/`smiles` table | Local or HPC node (direct `python` CLI; needs checkpoint + embeddings + PyTorch/RDKit) |
+| [eb-pbcoord-predict](eb-pbcoord-predict/SKILL.md) | Predict binding energy (Eb, eV) of a Lewis base molecule coordinating to surface Pb on **FAPbI3**, for user-given molecules (inline or CSV) with a GIN-E downstream model; ranks by Eb, emits `cid`/`smiles` table | Local or HPC node (direct `python` CLI; needs checkpoints + PyTorch/RDKit) |
 | [mol-salt-vendor](mol-salt-vendor/SKILL.md) | Per-molecule free-base physical form, vendors, and HCl/HBr/HI salt availability via OpenAI + web search | Local (OpenAI API) |
 
 ### Discovery funnel
@@ -47,12 +49,12 @@ Do **not** put custom skills in `~/.cursor/skills-cursor/` (Cursor built-ins onl
 The skills chain into a candidate-discovery pipeline:
 
 ```
-pubchem-mol-filter → (ML ranking) → ssl-neighbor-search → mol-salt-vendor
-   clean candidates                   analogs of actives     buyable forms + vendors
+pubchem-mol-filter → ssl-neighbor-search → eb-pbcoord-predict → mol-salt-vendor
+   clean candidates     analogs of actives    rank by binding Eb   buyable forms + vendors
 ```
 
-`ssl-neighbor-search` writes a deduplicated `cid`/`smiles` table that drops directly into
-`mol-salt-vendor`'s default input columns.
+`ssl-neighbor-search` and `eb-pbcoord-predict` both emit `cid`/`smiles` tables that drop
+directly into the next skill's default input columns (`mol-salt-vendor` reads `cid`/`smiles`).
 
 ## Add a new skill
 
