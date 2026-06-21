@@ -1,0 +1,24 @@
+{
+  "confirmed": false,
+  "io": {
+    "queries": [
+      {"name": "Phenethylamine", "smiles": "NCCc1ccccc1", "cid": null}
+    ],
+    "query_csv": null,
+    "name_column": "molecule_name",
+    "cid_column": "cid",
+    "smiles_column": "smiles",
+    "embedding_dir": "/REPLACE/with/filtered_csv_embeddings",
+    "checkpoint": "/REPLACE/with/checkpoints/best_model.pt",
+    "project_root": null,
+    "output_csv": "ssl_neighbors.csv",
+    "output_dedup_csv": "ssl_neighbors_dedup.csv",
+    "write_dedup": true
+  },
+  "knn": {
+    "k": 21,
+    "chunk_size": 100000,
+    "device": "auto",
+    "drop_query_isotopes": true
+  }
+}

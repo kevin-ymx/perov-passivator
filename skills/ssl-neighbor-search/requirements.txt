@@ -1,0 +1,8 @@
+# This skill reuses the main project's runtime (see the repo-root requirements.txt):
+#   torch, torch-geometric, rdkit, numpy, scipy, tqdm
+# It imports knn_sslembedding_search.py / inference_ssl.py / config.py from the
+# project root, so install the project environment rather than a separate one.
+#
+#   pip install -r ../../requirements.txt
+#
+# No additional packages are required by this skill itself.
