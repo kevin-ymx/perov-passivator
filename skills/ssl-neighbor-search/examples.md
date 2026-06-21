@@ -88,7 +88,7 @@ python "$SKILL_DIR/scripts/ssl_neighbor_search.py" --config run_config.json \
 ## Output columns
 
 **Long form (`output_csv`):**
-`query_name, query_cid, query_smiles, query_journal, rank, ref_cid, ref_smiles, ref_status, distance`
+`query_name, query_cid, query_smiles, rank, ref_cid, ref_smiles, ref_status, distance`
 
 **Deduplicated (`output_dedup_csv`):**
 `cid, smiles, ref_status, matched_query_molecules, n_query_matches, best_rank, best_distance`

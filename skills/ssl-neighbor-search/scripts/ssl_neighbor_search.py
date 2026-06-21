@@ -5,7 +5,7 @@ Given query molecules (entered inline by the user, or loaded from a CSV), this
 computes GIN-E embeddings with a trained checkpoint and finds the k nearest
 neighbors in a reference embedding set (the project's `filtered_csv_embeddings`).
 It is a thin wrapper around the existing `knn_sslembedding_search.py` functions
-(`get_query_embeddings`, `run_knn`, `write_results`), adding:
+(`get_query_embeddings`, `run_knn`), adding:
 
   - inline OR CSV query input (chosen from the run config),
   - a config + confirmation gate (same pattern as the other skills),
@@ -170,6 +170,43 @@ def build_query_rows(io: IOConfig) -> List[Dict[str, str]]:
     else:
         rows = load_csv_queries(io.query_csv, io.name_column, io.cid_column, io.smiles_column)
     return rows
+
+
+# --------------------------------------------------------------------------- #
+# Long-form output (one row per query–neighbor pair)
+# --------------------------------------------------------------------------- #
+LONG_FORM_COLUMNS = [
+    "query_name", "query_cid", "query_smiles",
+    "rank", "ref_cid", "ref_smiles", "ref_status", "distance",
+]
+
+
+def write_long_form_csv(
+    output_path: str,
+    valid_rows: List[Dict[str, str]],
+    knn_results: List[List[Tuple[float, str, str, str]]],
+) -> None:
+    out_dir = os.path.dirname(os.path.abspath(output_path))
+    if out_dir:
+        os.makedirs(out_dir, exist_ok=True)
+    with open(output_path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=LONG_FORM_COLUMNS)
+        writer.writeheader()
+        for row, neighbors in zip(valid_rows, knn_results):
+            query_name = row.get("molecule_name", "")
+            query_cid = row.get("cid", "")
+            query_smiles = row.get("smiles", "") or row.get("SMILES", "")
+            for rank, (dist, ref_cid, ref_smiles, ref_status) in enumerate(neighbors, start=1):
+                writer.writerow({
+                    "query_name": query_name,
+                    "query_cid": query_cid,
+                    "query_smiles": query_smiles,
+                    "rank": rank,
+                    "ref_cid": ref_cid,
+                    "ref_smiles": ref_smiles,
+                    "ref_status": ref_status,
+                    "distance": f"{dist:.6f}",
+                })
 
 
 # --------------------------------------------------------------------------- #
@@ -407,14 +444,7 @@ def main() -> None:
     )
 
     print("Writing results...")
-    knn.write_results(
-        io.output_csv,
-        valid_rows,
-        knn_results,
-        name_col="molecule_name",
-        cid_col="cid",
-        smiles_col="smiles",
-    )
+    write_long_form_csv(io.output_csv, valid_rows, knn_results)
     print(f"  Long-form neighbors: {io.output_csv}")
 
     if io.write_dedup:
