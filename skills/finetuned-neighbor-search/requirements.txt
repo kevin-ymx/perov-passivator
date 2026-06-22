@@ -1,0 +1,10 @@
+# This skill runs inside the finetuned GIN-E backend environment.
+# It imports knn_finetunedembedding_search.py from io.project_root, which in turn
+# requires the backend's torch / torch-geometric / RDKit / scipy / tqdm stack.
+
+torch
+torch-geometric
+rdkit
+numpy
+scipy
+tqdm
