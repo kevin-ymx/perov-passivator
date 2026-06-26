@@ -1,0 +1,27 @@
+{
+  "confirmed": false,
+  "io": {
+    "mode": "single",
+    "input": "/REPLACE/with/input.csv",
+    "input_dir": null,
+    "output_dir": "/REPLACE/with/output_graph_cache",
+    "cid_column": "CID",
+    "smiles_column": "SMILES"
+  },
+  "graph": {
+    "include_hydrogens": false,
+    "node_features": [
+      "element_onehot",
+      "partial_charge",
+      "hybridization_onehot",
+      "degree",
+      "valence_electrons",
+      "electronegativity"
+    ],
+    "edge_features": [
+      "bond_type_onehot",
+      "bond_direction_onehot"
+    ]
+  }
+}
+
