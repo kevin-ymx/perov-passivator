@@ -1,0 +1,38 @@
+{
+  "confirmed": false,
+  "io": {
+    "mode": "shards",
+    "input": "/REPLACE/with/input.csv",
+    "input_dir": "/REPLACE/with/input_shards",
+    "output_dir": "/REPLACE/with/gine_ssl_inference",
+    "shard_glob": "*.csv",
+    "cid_column": "CID",
+    "smiles_column": "SMILES"
+  },
+  "checkpoint": {
+    "path": "/REPLACE/with/best_model.pt"
+  },
+  "graph": {
+    "include_hydrogens": "auto",
+    "node_features": "auto",
+    "edge_features": "auto"
+  },
+  "model": {
+    "node_feature_dim": "auto",
+    "edge_feature_dim": "auto",
+    "node_embedding_dim": "auto",
+    "edge_embedding_dim": "auto",
+    "hidden_dim": "auto",
+    "num_gin_layers": "auto",
+    "dropout": "auto",
+    "use_batch_norm": "auto",
+    "pooling": "auto"
+  },
+  "inference": {
+    "batch_size": 512,
+    "device": "cuda",
+    "num_workers": 0,
+    "normalize_embeddings": false,
+    "skip_completed": true
+  }
+}

@@ -1,0 +1,5 @@
+torch
+torch-geometric
+rdkit
+numpy
+tqdm

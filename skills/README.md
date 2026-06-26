@@ -14,6 +14,7 @@ skills/
 ├── eb-pbcoord-predict/       # GIN-E downstream Eb: Lewis base–Pb binding on FAPbI3
 ├── mol-graph-cache/          # CSV SMILES -> raw PyG graph cache with selectable features
 ├── gine-ssl-train/           # GPU Slurm GIN-E SSL training from raw graph caches
+├── gine-ssl-infer/           # GPU Slurm GIN-E encoder inference from CSV SMILES shards
 └── mol-salt-vendor/          # LLM + web search: physical form & halide-salt vendors
 ```
 
@@ -46,6 +47,7 @@ Do **not** put custom skills in `~/.cursor/skills-cursor/` (Cursor built-ins onl
 | [eb-pbcoord-predict](eb-pbcoord-predict/SKILL.md) | Predict binding energy (Eb, eV) of a Lewis base molecule coordinating to surface Pb on **FAPbI3**, for user-given molecules (inline or CSV) with a GIN-E downstream model; ranks by Eb, emits `cid`/`smiles` table | Local or HPC node (direct `python` CLI; needs checkpoints + PyTorch/RDKit) |
 | [mol-graph-cache](mol-graph-cache/SKILL.md) | Convert CSV SMILES batches into raw PyTorch Geometric graph caches with explicit node/edge feature selection | Local or HPC node (direct `python` CLI; needs PyTorch/RDKit/PyG) |
 | [gine-ssl-train](gine-ssl-train/SKILL.md) | Train a GIN-E SSL encoder from raw graph caches with fixed contrastive pairs via GPU Slurm `sbatch` | HPC GPU node (`sbatch`; needs PyTorch/PyG project env) |
+| [gine-ssl-infer](gine-ssl-infer/SKILL.md) | Generate GIN-E-style encoder embeddings from CSV SMILES, with checkpoint-matched graph features, one GPU per shard, and restartable shard outputs | HPC GPU node (`sbatch`; needs PyTorch/PyG/RDKit env) |
 | [mol-salt-vendor](mol-salt-vendor/SKILL.md) | Per-molecule free-base physical form, vendors, and HCl/HBr/HI salt availability via OpenAI + web search | Local (OpenAI API) |
 
 ### Discovery funnel

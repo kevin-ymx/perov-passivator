@@ -1,0 +1,22 @@
+{
+  "confirmed": false,
+  "job_name": "gine-ssl-infer",
+  "account": "YOUR_ACCOUNT",
+  "partition": "short",
+  "nodes": 4,
+  "ntasks": 16,
+  "gpus_per_node": 4,
+  "cpus_per_task": 32,
+  "mem": "0",
+  "time_limit": "24:00:00",
+  "qos": null,
+  "workdir": "/REPLACE/with/run_directory",
+  "bashrc": "/home/yeming/.bashrc",
+  "conda_env": "/scratch/yeming/conda_envs/ai4m",
+  "infer_script": "/REPLACE/with/gine-ssl-infer/scripts/gine_ssl_infer.py",
+  "run_config_path": "/REPLACE/with/run_config.json",
+  "shard_assignment_path": null,
+  "output_log": "/REPLACE/with/logs/gine-ssl-infer-%j.out",
+  "error_log": "/REPLACE/with/logs/gine-ssl-infer-%j.err",
+  "rendered_script_path": "/REPLACE/with/jobs/gine_ssl_infer.slurm"
+}
