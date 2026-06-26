@@ -1,0 +1,25 @@
+#!/bin/bash
+# Slurm batch script for gine-ssl-train.
+# Generated from submit_gine_ssl_train.slurm.template.
+
+#SBATCH --job-name={{JOB_NAME}}
+#SBATCH --account={{ACCOUNT}}
+#SBATCH --partition={{PARTITION}}
+#SBATCH --nodes={{NODES}}
+#SBATCH --ntasks={{NTASKS}}
+#SBATCH --gpus-per-node={{GPUS_PER_NODE}}
+#SBATCH --cpus-per-task={{CPUS_PER_TASK}}
+#SBATCH --mem={{MEM}}
+#SBATCH --time={{TIME_LIMIT}}
+{{QOS_DIRECTIVE}}
+#SBATCH --output={{OUTPUT_LOG}}
+#SBATCH --error={{ERROR_LOG}}
+
+set -euo pipefail
+
+source "{{BASHRC}}"
+conda activate "{{CONDA_ENV}}"
+
+cd "{{WORKDIR}}"
+
+python "{{TRAIN_SCRIPT}}" --config "{{RUN_CONFIG_PATH}}"

@@ -1,0 +1,45 @@
+{
+  "confirmed": false,
+  "io": {
+    "cache_dir": "/REPLACE/with/raw_graph_cache_output"
+  },
+  "split": {
+    "train_ratio": 0.8,
+    "val_ratio": 0.2,
+    "seed": 42
+  },
+  "augmentation": {
+    "subgraph_removal_ratio": 0.25,
+    "mask_value": 0.0
+  },
+  "model": {
+    "node_feature_dim": "auto",
+    "edge_feature_dim": "auto",
+    "node_embedding_dim": 128,
+    "edge_embedding_dim": 64,
+    "hidden_dim": 256,
+    "num_gin_layers": 6,
+    "dropout": 0.1,
+    "use_batch_norm": true,
+    "pooling": "mean"
+  },
+  "training": {
+    "batch_size": 512,
+    "num_epochs": 50,
+    "learning_rate": 0.001,
+    "weight_decay": 0.0001,
+    "temperature": 0.07,
+    "eta_min": 0.000001,
+    "gradient_clip_norm": 1.0,
+    "device": "cuda",
+    "num_workers": 32,
+    "checkpoint_frequency": 3,
+    "resume_checkpoint": null
+  },
+  "output": {
+    "checkpoint_dir": "/REPLACE/with/checkpoints/gine_ssl_train",
+    "log_dir": "/REPLACE/with/logs/gine_ssl_train",
+    "save_best": true,
+    "save_periodic": true
+  }
+}

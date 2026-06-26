@@ -1,0 +1,21 @@
+{
+  "confirmed": false,
+  "job_name": "gine-ssl-train",
+  "account": "YOUR_ACCOUNT",
+  "partition": "short",
+  "nodes": 1,
+  "ntasks": 1,
+  "gpus_per_node": 1,
+  "cpus_per_task": 32,
+  "mem": "0",
+  "time_limit": "24:00:00",
+  "qos": null,
+  "workdir": "/REPLACE/with/run_directory",
+  "bashrc": "/home/yeming/.bashrc",
+  "conda_env": "/scratch/yeming/conda_envs/ai4m",
+  "train_script": "/REPLACE/with/gine-ssl-train/scripts/gine_ssl_train.py",
+  "run_config_path": "/REPLACE/with/run_config.json",
+  "output_log": "/REPLACE/with/logs/gine-ssl-train-%j.out",
+  "error_log": "/REPLACE/with/logs/gine-ssl-train-%j.err",
+  "rendered_script_path": "/REPLACE/with/jobs/gine_ssl_train.slurm"
+}
