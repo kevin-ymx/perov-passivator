@@ -18,7 +18,36 @@ python skills/pipeline-automation/scripts/pipeline_controller.py \
   --dry-run
 ```
 
-## Watch mode
+## Cron loop check
+
+```bash
+python skills/pipeline-automation/scripts/cron_manager.py \
+  --pipeline-config runs/sam_derivative_discovery/pipeline_config.json \
+  --status runs/sam_derivative_discovery/pipeline_status.json \
+  --print
+```
+
+After approval on the target Linux/HPC machine:
+
+```bash
+python skills/pipeline-automation/scripts/cron_manager.py \
+  --pipeline-config runs/sam_derivative_discovery/pipeline_config.json \
+  --status runs/sam_derivative_discovery/pipeline_status.json \
+  --install \
+  --yes
+```
+
+Remove the managed cron block:
+
+```bash
+python skills/pipeline-automation/scripts/cron_manager.py \
+  --pipeline-config runs/sam_derivative_discovery/pipeline_config.json \
+  --status runs/sam_derivative_discovery/pipeline_status.json \
+  --remove \
+  --yes
+```
+
+## Watch mode for temporary sessions
 
 ```bash
 python skills/pipeline-automation/scripts/pipeline_controller.py \
@@ -27,12 +56,6 @@ python skills/pipeline-automation/scripts/pipeline_controller.py \
   --execute \
   --watch \
   --interval-hours 6
-```
-
-## Scheduled cron check
-
-```bash
-0 */6 * * * cd /path/to/perov-passivator && python skills/pipeline-automation/scripts/pipeline_controller.py --pipeline-config runs/sam_derivative_discovery/pipeline_config.json --status runs/sam_derivative_discovery/pipeline_status.json --execute
 ```
 
 ## Slurm stage pattern

@@ -9,6 +9,14 @@
     "stop_on_failure": true,
     "max_actions_per_check": 0
   },
+  "scheduler": {
+    "type": "cron",
+    "enabled": true,
+    "interval_hours": 6,
+    "cron_expression": null,
+    "python": "python",
+    "log_path": "/REPLACE/with/runs/sam_derivative_discovery/logs/pipeline_controller_cron.log"
+  },
   "stages": [
     {
       "id": "ssl_neighbors",

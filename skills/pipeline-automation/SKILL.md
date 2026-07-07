@@ -18,13 +18,15 @@ action.
 3. Show the full config to the user for approval.
 4. Execute only after `"confirmed": true`.
 5. Initialize or update the status file.
-6. Run the controller once, in watch mode, or by a scheduler such as cron or
-   Windows Task Scheduler.
+6. For loop checks or long-running HPC workflows, use cron as the default
+   scheduler. Render the cron entry, show it to the user, and install it only
+   after explicit approval.
 
 ```bash
 python skills/pipeline-automation/scripts/pipeline_controller.py --write-config runs/my_pipeline/pipeline_config.json
 python skills/pipeline-automation/scripts/pipeline_controller.py --pipeline-config runs/my_pipeline/pipeline_config.json --status runs/my_pipeline/pipeline_status.json --init-status
 python skills/pipeline-automation/scripts/pipeline_controller.py --pipeline-config runs/my_pipeline/pipeline_config.json --status runs/my_pipeline/pipeline_status.json --execute
+python skills/pipeline-automation/scripts/cron_manager.py --pipeline-config runs/my_pipeline/pipeline_config.json --status runs/my_pipeline/pipeline_status.json --print
 ```
 
 ## Stage Types
@@ -57,14 +59,30 @@ The whole pipeline is `pending`, `running`, `waiting`, `succeeded`, `failed`, or
 
 ## Regular Monitoring
 
-For periodic checks, schedule the same command every few hours:
+For periodic loop checks, prefer cron on Linux/HPC. First render the exact cron
+entry:
 
 ```bash
-cd /path/to/project
-python skills/pipeline-automation/scripts/pipeline_controller.py --pipeline-config runs/my_pipeline/pipeline_config.json --status runs/my_pipeline/pipeline_status.json --execute
+python skills/pipeline-automation/scripts/cron_manager.py \
+  --pipeline-config runs/my_pipeline/pipeline_config.json \
+  --status runs/my_pipeline/pipeline_status.json \
+  --print
+```
+
+After the user approves the rendered entry, install it on the target Linux/HPC
+machine:
+
+```bash
+python skills/pipeline-automation/scripts/cron_manager.py \
+  --pipeline-config runs/my_pipeline/pipeline_config.json \
+  --status runs/my_pipeline/pipeline_status.json \
+  --install \
+  --yes
 ```
 
 The controller uses the status file to avoid repeating finished stages.
+Use `--remove --yes` with the same config and status paths to remove the
+managed cron block after the pipeline is done or no longer needs monitoring.
 
 ## Notes
 
@@ -74,3 +92,5 @@ The controller uses the status file to avoid repeating finished stages.
   skills require `"confirmed": true`.
 - Reject placeholder paths, placeholder accounts, and unconfirmed pipeline
   configs before execution.
+- Do not silently edit cron. Always show the rendered cron entry first and
+  install only after explicit user approval.
