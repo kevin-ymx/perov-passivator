@@ -1,0 +1,12 @@
+{
+  "schema_version": "1.0",
+  "pipeline_name": "sam_derivative_discovery",
+  "pipeline_config_path": "/REPLACE/with/runs/sam_derivative_discovery/pipeline_config.json",
+  "status": "pending",
+  "created_at": null,
+  "updated_at": null,
+  "last_checked": null,
+  "next_check_after": null,
+  "stages": {},
+  "history": []
+}

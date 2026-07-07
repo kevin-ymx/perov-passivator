@@ -15,7 +15,8 @@ skills/
 ├── mol-graph-cache/          # CSV SMILES -> raw PyG graph cache with selectable features
 ├── gine-ssl-train/           # GPU Slurm GIN-E SSL training from raw graph caches
 ├── gine-ssl-infer/           # GPU Slurm GIN-E encoder inference from CSV SMILES shards
-└── mol-salt-vendor/          # LLM + web search: physical form & halide-salt vendors
+├── mol-salt-vendor/          # LLM + web search: physical form & halide-salt vendors
+└── pipeline-automation/      # deterministic multi-skill pipeline orchestration
 ```
 
 Typical skill folder:
@@ -49,6 +50,7 @@ Do **not** put custom skills in `~/.cursor/skills-cursor/` (Cursor built-ins onl
 | [gine-ssl-train](gine-ssl-train/SKILL.md) | Train a GIN-E SSL encoder from raw graph caches with fixed contrastive pairs via GPU Slurm `sbatch` | HPC GPU node (`sbatch`; needs PyTorch/PyG project env) |
 | [gine-ssl-infer](gine-ssl-infer/SKILL.md) | Generate GIN-E-style encoder embeddings from CSV SMILES, with checkpoint-matched graph features, one GPU per shard, and restartable shard outputs | HPC GPU node (`sbatch`; needs PyTorch/PyG/RDKit env) |
 | [mol-salt-vendor](mol-salt-vendor/SKILL.md) | Per-molecule free-base physical form, vendors, and HCl/HBr/HI salt availability via OpenAI + web search | Local (OpenAI API) |
+| [pipeline-automation](pipeline-automation/SKILL.md) | Deterministically execute and monitor multi-stage skill pipelines using config, status, journal, retry, and restart files | Local or HPC scheduler node |
 
 ### Discovery funnel
 
@@ -61,6 +63,9 @@ pubchem-mol-filter → ssl-neighbor-search → eb-pbcoord-predict → mol-salt-v
 
 `ssl-neighbor-search` and `eb-pbcoord-predict` both emit `cid`/`smiles` tables that drop
 directly into the next skill's default input columns (`mol-salt-vendor` reads `cid`/`smiles`).
+
+Use `pipeline-automation` when the full chain should run as a restartable workflow with
+regular status checks rather than as manually executed individual skills.
 
 ## Add a new skill
 

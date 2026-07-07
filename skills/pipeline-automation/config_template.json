@@ -1,0 +1,56 @@
+{
+  "confirmed": false,
+  "pipeline": {
+    "name": "sam_derivative_discovery",
+    "project_root": "/REPLACE/with/perov-passivator",
+    "run_dir": "/REPLACE/with/runs/sam_derivative_discovery",
+    "journal_path": null,
+    "monitor_interval_hours": 6,
+    "stop_on_failure": true,
+    "max_actions_per_check": 0
+  },
+  "stages": [
+    {
+      "id": "ssl_neighbors",
+      "name": "Find SSL embedding neighbors",
+      "enabled": true,
+      "kind": "command",
+      "depends_on": [],
+      "workdir": "/REPLACE/with/perov-passivator",
+      "command": "python skills/ssl-neighbor-search/scripts/ssl_neighbor_search.py --config runs/sam_derivative_discovery/run_configs/ssl_neighbor_search_config.json",
+      "expected_outputs": [
+        "runs/sam_derivative_discovery/outputs/ssl_neighbors_dedup.csv"
+      ],
+      "success_markers": [],
+      "failure_markers": [],
+      "skip_if_outputs_exist": true,
+      "timeout_hours": null,
+      "retry": {
+        "max_attempts": 1,
+        "retry_delay_minutes": 0
+      }
+    },
+    {
+      "id": "salt_vendor_lookup",
+      "name": "Search halide salt vendors",
+      "enabled": true,
+      "kind": "command",
+      "depends_on": [
+        "ssl_neighbors"
+      ],
+      "workdir": "/REPLACE/with/perov-passivator",
+      "command": "python skills/mol-salt-vendor/scripts/mol_salt_vendor.py --config runs/sam_derivative_discovery/run_configs/mol_salt_vendor_config.json",
+      "expected_outputs": [
+        "runs/sam_derivative_discovery/outputs/mol_salt_vendor_results.csv"
+      ],
+      "success_markers": [],
+      "failure_markers": [],
+      "skip_if_outputs_exist": true,
+      "timeout_hours": null,
+      "retry": {
+        "max_attempts": 1,
+        "retry_delay_minutes": 0
+      }
+    }
+  ]
+}
