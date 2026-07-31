@@ -25,11 +25,13 @@
       "kind": "command",
       "depends_on": [],
       "workdir": "/REPLACE/with/perov-passivator",
-      "command": "python skills/ssl-neighbor-search/scripts/ssl_neighbor_search.py --config runs/sam_derivative_discovery/run_configs/ssl_neighbor_search_config.json",
+      "command": "python skills/ssl-neighbor-search/scripts/ssl_neighbor_search.py --config runs/sam_derivative_discovery/run_configs/ssl_neighbor_search_config.json && mkdir -p runs/sam_derivative_discovery/markers && touch runs/sam_derivative_discovery/markers/ssl_neighbors.success",
       "expected_outputs": [
         "runs/sam_derivative_discovery/outputs/ssl_neighbors_dedup.csv"
       ],
-      "success_markers": [],
+      "success_markers": [
+        "runs/sam_derivative_discovery/markers/ssl_neighbors.success"
+      ],
       "failure_markers": [],
       "skip_if_outputs_exist": true,
       "timeout_hours": null,
@@ -47,11 +49,13 @@
         "ssl_neighbors"
       ],
       "workdir": "/REPLACE/with/perov-passivator",
-      "command": "python skills/mol-salt-vendor/scripts/mol_salt_vendor.py --config runs/sam_derivative_discovery/run_configs/mol_salt_vendor_config.json",
+      "command": "python skills/mol-salt-vendor/scripts/mol_salt_vendor.py --config runs/sam_derivative_discovery/run_configs/mol_salt_vendor_config.json && mkdir -p runs/sam_derivative_discovery/markers && touch runs/sam_derivative_discovery/markers/salt_vendor_lookup.success",
       "expected_outputs": [
         "runs/sam_derivative_discovery/outputs/mol_salt_vendor_results.csv"
       ],
-      "success_markers": [],
+      "success_markers": [
+        "runs/sam_derivative_discovery/markers/salt_vendor_lookup.success"
+      ],
       "failure_markers": [],
       "skip_if_outputs_exist": true,
       "timeout_hours": null,

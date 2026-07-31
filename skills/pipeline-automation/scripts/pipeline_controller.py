@@ -27,6 +27,34 @@ PLACEHOLDER_PATTERNS = (
     "TODO",
 )
 
+SLURM_ACTIVE_STATES = {
+    "COMPLETING",
+    "CONFIGURING",
+    "PENDING",
+    "REQUEUED",
+    "REQUEUE_FED",
+    "REQUEUE_HOLD",
+    "RESIZING",
+    "RUNNING",
+    "SIGNALING",
+    "STAGE_OUT",
+    "SUSPENDED",
+}
+SLURM_SUCCESS_STATES = {"COMPLETED"}
+SLURM_RESTARTABLE_STATES = {"TIMEOUT"}
+SLURM_FAILURE_STATES = {
+    "BOOT_FAIL",
+    "CANCELLED",
+    "DEADLINE",
+    "FAILED",
+    "NODE_FAIL",
+    "OUT_OF_MEMORY",
+    "PREEMPTED",
+    "REVOKED",
+    "SPECIAL_EXIT",
+    "STOPPED",
+}
+
 
 DEFAULT_CONFIG: Dict[str, Any] = {
     "confirmed": False,
@@ -47,11 +75,13 @@ DEFAULT_CONFIG: Dict[str, Any] = {
             "kind": "command",
             "depends_on": [],
             "workdir": "/REPLACE/with/perov-passivator",
-            "command": "python skills/ssl-neighbor-search/scripts/ssl_neighbor_search.py --config runs/sam_derivative_discovery/run_configs/ssl_neighbor_search_config.json",
+            "command": "python skills/ssl-neighbor-search/scripts/ssl_neighbor_search.py --config runs/sam_derivative_discovery/run_configs/ssl_neighbor_search_config.json && mkdir -p runs/sam_derivative_discovery/markers && touch runs/sam_derivative_discovery/markers/ssl_neighbors.success",
             "expected_outputs": [
                 "runs/sam_derivative_discovery/outputs/ssl_neighbors_dedup.csv"
             ],
-            "success_markers": [],
+            "success_markers": [
+                "runs/sam_derivative_discovery/markers/ssl_neighbors.success"
+            ],
             "failure_markers": [],
             "skip_if_outputs_exist": True,
             "timeout_hours": None,
@@ -64,11 +94,13 @@ DEFAULT_CONFIG: Dict[str, Any] = {
             "kind": "command",
             "depends_on": ["ssl_neighbors"],
             "workdir": "/REPLACE/with/perov-passivator",
-            "command": "python skills/mol-salt-vendor/scripts/mol_salt_vendor.py --config runs/sam_derivative_discovery/run_configs/mol_salt_vendor_config.json",
+            "command": "python skills/mol-salt-vendor/scripts/mol_salt_vendor.py --config runs/sam_derivative_discovery/run_configs/mol_salt_vendor_config.json && mkdir -p runs/sam_derivative_discovery/markers && touch runs/sam_derivative_discovery/markers/salt_vendor_lookup.success",
             "expected_outputs": [
                 "runs/sam_derivative_discovery/outputs/mol_salt_vendor_results.csv"
             ],
-            "success_markers": [],
+            "success_markers": [
+                "runs/sam_derivative_discovery/markers/salt_vendor_lookup.success"
+            ],
             "failure_markers": [],
             "skip_if_outputs_exist": True,
             "timeout_hours": None,
@@ -240,6 +272,14 @@ def validate_config(config: Dict[str, Any], config_path: Path, require_confirmed
             raise PipelineError(f"Stage {stage_id} requires submit_command.")
         if kind == "slurm" and not stage.get("job_id_regex"):
             raise PipelineError(f"Stage {stage_id} requires job_id_regex.")
+        if stage.get("skip_if_outputs_exist", True) and not (
+            stage.get("success_markers") or []
+        ):
+            raise PipelineError(
+                f"Stage {stage_id} enables skip_if_outputs_exist but has no "
+                "success_markers. Configure a marker written only after successful "
+                "completion, or set skip_if_outputs_exist to false."
+            )
 
     id_set = set(ids)
     for stage in stages:
@@ -259,6 +299,7 @@ def make_stage_status(stage: Dict[str, Any]) -> Dict[str, Any]:
         "status": "skipped" if stage.get("enabled", True) is False else "pending",
         "attempts": 0,
         "job_id": None,
+        "scheduler_state": None,
         "started_at": None,
         "finished_at": None,
         "next_retry_after": None,
@@ -356,6 +397,15 @@ def expected_success(config: Dict[str, Any], stage: Dict[str, Any], config_path:
     return bool(expected or markers)
 
 
+def restart_success_confirmed(
+    config: Dict[str, Any], stage: Dict[str, Any], config_path: Path
+) -> bool:
+    """Require an explicit final marker before skipping work on restart."""
+    if not (stage.get("success_markers") or []):
+        return False
+    return expected_success(config, stage, config_path)
+
+
 def failure_marker_present(config: Dict[str, Any], stage: Dict[str, Any], config_path: Path) -> bool:
     base = stage_base_dir(config, stage, config_path)
     return any_path_exists(stage.get("failure_markers", []) or [], base)
@@ -404,6 +454,46 @@ def mark_retry_or_failed(
         add_event(config, status, status_path, "stage_failed", stage["id"], message)
 
 
+def mark_restart_or_blocked(
+    config: Dict[str, Any],
+    status: Dict[str, Any],
+    status_path: Path,
+    stage: Dict[str, Any],
+    message: str,
+) -> None:
+    """Schedule a restartable interruption or block when its budget is exhausted."""
+    entry = get_status_entry(status, stage["id"])
+    entry["message"] = message
+    entry["finished_at"] = iso_now()
+    entry["job_id"] = None
+    if int(entry.get("attempts", 0)) < retry_limit(stage):
+        delay = retry_delay_minutes(stage)
+        entry["status"] = "retrying"
+        if delay > 0:
+            next_time = datetime.now(timezone.utc) + timedelta(minutes=delay)
+            entry["next_retry_after"] = next_time.replace(microsecond=0).isoformat()
+        else:
+            entry["next_retry_after"] = None
+        add_event(
+            config,
+            status,
+            status_path,
+            "stage_restart_scheduled",
+            stage["id"],
+            message,
+        )
+    else:
+        entry["status"] = "blocked"
+        add_event(
+            config,
+            status,
+            status_path,
+            "stage_restart_blocked",
+            stage["id"],
+            message,
+        )
+
+
 def retry_delay_elapsed(entry: Dict[str, Any]) -> bool:
     next_retry = parse_iso(entry.get("next_retry_after"))
     if next_retry is None:
@@ -419,6 +509,20 @@ def check_timeout(stage: Dict[str, Any], entry: Dict[str, Any]) -> bool:
     if started is None:
         return False
     return datetime.now(timezone.utc) - started > timedelta(hours=float(timeout_hours))
+
+
+def parse_slurm_states(output: str) -> List[str]:
+    """Parse unique Slurm states from newline- or pipe-delimited sacct output."""
+    states: List[str] = []
+    for line in output.splitlines():
+        value = line.split("|", 1)[0].strip()
+        if not value:
+            continue
+        state = value.split()[0].rstrip("+").upper()
+        if state == "STATE" or state in states:
+            continue
+        states.append(state)
+    return states
 
 
 def run_command_stage(
@@ -551,6 +655,7 @@ def submit_slurm_stage(
         return True
 
     entry["job_id"] = match.group(1)
+    entry["scheduler_state"] = "SUBMITTED"
     entry["status"] = "waiting_external_job"
     entry["message"] = f"Submitted Slurm job {entry['job_id']}."
     add_event(
@@ -565,6 +670,113 @@ def submit_slurm_stage(
     return True
 
 
+def check_slurm_accounting_state(
+    config: Dict[str, Any],
+    status: Dict[str, Any],
+    status_path: Path,
+    config_path: Path,
+    stage: Dict[str, Any],
+    dry_run: bool,
+) -> bool:
+    """Interpret sacct state after a submitted job is no longer active."""
+    stage_id = stage["id"]
+    entry = get_status_entry(status, stage_id)
+    job_id = entry.get("job_id")
+    command = stage["accounting_command"].replace("{job_id}", str(job_id))
+    cwd = stage_base_dir(config, stage, config_path)
+
+    if dry_run:
+        print(f"[dry-run] would query Slurm accounting for stage {stage_id}: {command}")
+        return False
+
+    result = run_shell(command, cwd)
+    entry["last_return_code"] = result.returncode
+    entry["last_stdout_tail"] = tail_text(result.stdout)
+    entry["last_stderr_tail"] = tail_text(result.stderr)
+
+    if result.returncode != 0:
+        entry["message"] = (
+            f"Slurm accounting query failed for job {job_id}; waiting for the next check."
+        )
+        return False
+
+    states = parse_slurm_states(result.stdout)
+    if not states:
+        entry["scheduler_state"] = None
+        entry["message"] = (
+            f"Slurm job {job_id} is absent from the queue; accounting state is not "
+            "available yet."
+        )
+        return False
+
+    entry["scheduler_state"] = ",".join(states)
+    if any(state in SLURM_ACTIVE_STATES for state in states):
+        entry["message"] = (
+            f"Slurm job {job_id} remains active with state(s): {entry['scheduler_state']}."
+        )
+        return False
+
+    restartable_states = [
+        state for state in states if state in SLURM_RESTARTABLE_STATES
+    ]
+    if restartable_states:
+        mark_restart_or_blocked(
+            config,
+            status,
+            status_path,
+            stage,
+            f"Slurm job {job_id} reached restartable state(s): "
+            f"{','.join(restartable_states)}.",
+        )
+        return True
+
+    failure_states = [state for state in states if state in SLURM_FAILURE_STATES]
+    if failure_states:
+        mark_retry_or_failed(
+            config,
+            status,
+            status_path,
+            stage,
+            f"Slurm job {job_id} ended with state(s): {','.join(failure_states)}.",
+        )
+        return True
+
+    if all(state in SLURM_SUCCESS_STATES for state in states):
+        has_completion_requirements = bool(
+            stage.get("expected_outputs") or stage.get("success_markers")
+        )
+        if not has_completion_requirements or expected_success(config, stage, config_path):
+            entry["status"] = "succeeded"
+            entry["finished_at"] = iso_now()
+            entry["message"] = (
+                f"Slurm job {job_id} completed and completion artifacts are valid."
+            )
+            add_event(
+                config,
+                status,
+                status_path,
+                "stage_succeeded",
+                stage_id,
+                entry["message"],
+            )
+        else:
+            mark_retry_or_failed(
+                config,
+                status,
+                status_path,
+                stage,
+                f"Slurm job {job_id} completed but expected outputs or success "
+                "markers are missing.",
+            )
+        return True
+
+    entry["message"] = (
+        f"Slurm job {job_id} has unrecognized accounting state(s): "
+        f"{entry['scheduler_state']}; waiting for the next check."
+    )
+    return False
+
+
 def check_waiting_slurm_stage(
     config: Dict[str, Any],
     status: Dict[str, Any],
@@ -576,13 +788,6 @@ def check_waiting_slurm_stage(
     stage_id = stage["id"]
     entry = get_status_entry(status, stage_id)
 
-    if expected_success(config, stage, config_path):
-        entry["status"] = "succeeded"
-        entry["finished_at"] = iso_now()
-        entry["message"] = "Expected outputs are present."
-        add_event(config, status, status_path, "stage_succeeded", stage_id, entry["message"])
-        return True
-
     if failure_marker_present(config, stage, config_path):
         mark_retry_or_failed(config, status, status_path, stage, "Failure marker detected.")
         return True
@@ -591,35 +796,59 @@ def check_waiting_slurm_stage(
         mark_retry_or_failed(config, status, status_path, stage, "Stage timed out.")
         return True
 
-    check_command = stage.get("check_command")
     job_id = entry.get("job_id")
-    if not check_command or not job_id:
+    if not job_id:
         entry["message"] = "Waiting for expected outputs."
         return False
 
-    command = check_command.replace("{job_id}", str(job_id))
+    check_command = stage.get("check_command")
+    accounting_command = stage.get("accounting_command")
     cwd = stage_base_dir(config, stage, config_path)
     if dry_run:
-        print(f"[dry-run] would check stage {stage_id}: {command}")
+        if check_command:
+            command = check_command.replace("{job_id}", str(job_id))
+            print(f"[dry-run] would check active Slurm job for stage {stage_id}: {command}")
+        if accounting_command:
+            command = accounting_command.replace("{job_id}", str(job_id))
+            print(
+                f"[dry-run] would query Slurm accounting if the job is inactive: {command}"
+            )
+        if not check_command and not accounting_command:
+            print(f"[dry-run] would keep waiting for outputs from stage {stage_id}.")
         return False
 
-    result = run_shell(command, cwd)
-    entry["last_return_code"] = result.returncode
-    entry["last_stdout_tail"] = tail_text(result.stdout)
-    entry["last_stderr_tail"] = tail_text(result.stderr)
+    if check_command:
+        command = check_command.replace("{job_id}", str(job_id))
+        result = run_shell(command, cwd)
+        entry["last_return_code"] = result.returncode
+        entry["last_stdout_tail"] = tail_text(result.stdout)
+        entry["last_stderr_tail"] = tail_text(result.stderr)
 
-    if result.returncode == 0 and result.stdout.strip():
-        entry["message"] = f"Slurm job {job_id} is still visible in scheduler."
-        return False
+        if result.returncode == 0 and result.stdout.strip():
+            entry["scheduler_state"] = "ACTIVE"
+            entry["message"] = f"Slurm job {job_id} is still visible in scheduler."
+            return False
 
-    mark_retry_or_failed(
-        config,
-        status,
-        status_path,
-        stage,
-        f"Slurm job {job_id} is no longer visible and expected outputs are missing.",
-    )
-    return True
+    if accounting_command:
+        return check_slurm_accounting_state(
+            config, status, status_path, config_path, stage, dry_run
+        )
+
+    if check_command:
+        mark_retry_or_failed(
+            config,
+            status,
+            status_path,
+            stage,
+            (
+                f"Slurm job {job_id} is no longer visible and no accounting command "
+                "is configured."
+            ),
+        )
+        return True
+
+    entry["message"] = "Waiting for a terminal Slurm state."
+    return False
 
 
 def stage_ready(stage: Dict[str, Any], entry: Dict[str, Any], status: Dict[str, Any]) -> bool:
@@ -630,6 +859,90 @@ def stage_ready(stage: Dict[str, Any], entry: Dict[str, Any], status: Dict[str, 
     if entry.get("status") == "retrying" and not retry_delay_elapsed(entry):
         return False
     return dependencies_satisfied(stage, status)
+
+
+def refresh_stage_states(
+    config: Dict[str, Any],
+    status: Dict[str, Any],
+    status_path: Path,
+    config_path: Path,
+    dry_run: bool,
+) -> bool:
+    """Refresh completion, failure, timeout, and external-job states once."""
+    progress = False
+    for stage in config.get("stages", []):
+        entry = get_status_entry(status, stage["id"])
+
+        if stage.get("enabled", True) is False or entry.get("status") in TERMINAL_STATUSES:
+            continue
+
+        if failure_marker_present(config, stage, config_path):
+            mark_retry_or_failed(config, status, status_path, stage, "Failure marker detected.")
+            progress = True
+            continue
+
+        if entry.get("status") == "waiting_external_job":
+            changed = check_waiting_slurm_stage(
+                config, status, status_path, config_path, stage, dry_run
+            )
+            progress = progress or changed
+            continue
+
+        if stage.get("skip_if_outputs_exist", True) and restart_success_confirmed(
+            config, stage, config_path
+        ):
+            entry["status"] = "succeeded"
+            entry["finished_at"] = iso_now()
+            entry["message"] = "Expected outputs and final success markers already exist."
+            add_event(config, status, status_path, "stage_succeeded", stage["id"], entry["message"])
+            progress = True
+            continue
+
+        if check_timeout(stage, entry):
+            mark_retry_or_failed(config, status, status_path, stage, "Stage timed out.")
+            progress = True
+
+    return progress
+
+
+def pipeline_stops_on_failure(config: Dict[str, Any], status: Dict[str, Any]) -> bool:
+    if not bool(config.get("pipeline", {}).get("stop_on_failure", True)):
+        return False
+    return any(
+        entry.get("status") == "failed" for entry in status.get("stages", {}).values()
+    )
+
+
+def find_next_ready_stage(
+    config: Dict[str, Any], status: Dict[str, Any]
+) -> Optional[Dict[str, Any]]:
+    """Return the first stage that is ready to move the pipeline forward."""
+    if pipeline_stops_on_failure(config, status):
+        return None
+
+    for stage in config.get("stages", []):
+        entry = get_status_entry(status, stage["id"])
+        if stage_ready(stage, entry, status):
+            return stage
+
+    return None
+
+
+def execute_stage(
+    config: Dict[str, Any],
+    status: Dict[str, Any],
+    status_path: Path,
+    config_path: Path,
+    stage: Dict[str, Any],
+    dry_run: bool,
+) -> bool:
+    """Run a local stage or submit a Slurm stage."""
+    kind = stage.get("kind")
+    if kind == "command":
+        return run_command_stage(config, status, status_path, config_path, stage, dry_run)
+    if kind == "slurm":
+        return submit_slurm_stage(config, status, status_path, config_path, stage, dry_run)
+    raise PipelineError(f"Unsupported stage kind: {kind}")
 
 
 def update_pipeline_status(config: Dict[str, Any], status: Dict[str, Any]) -> None:
@@ -661,77 +974,27 @@ def controller_pass(
 ) -> bool:
     sync_status(config, status)
     status["last_checked"] = iso_now()
-    progress = False
+    progress = refresh_stage_states(
+        config, status, status_path, config_path, dry_run
+    )
     actions = 0
     max_actions = int(config.get("pipeline", {}).get("max_actions_per_check", 0) or 0)
-    stop_on_failure = bool(config.get("pipeline", {}).get("stop_on_failure", True))
-
-    stages = config.get("stages", [])
-
-    for stage in stages:
-        entry = get_status_entry(status, stage["id"])
-        if stage.get("enabled", True) is False:
-            entry["status"] = "skipped"
-            continue
-
-        if entry.get("status") in {"succeeded", "skipped", "failed", "blocked"}:
-            continue
-
-        if failure_marker_present(config, stage, config_path):
-            mark_retry_or_failed(config, status, status_path, stage, "Failure marker detected.")
-            progress = True
-            continue
-
-        if stage.get("skip_if_outputs_exist", True) and expected_success(config, stage, config_path):
-            entry["status"] = "succeeded"
-            entry["finished_at"] = iso_now()
-            entry["message"] = "Expected outputs already exist."
-            add_event(config, status, status_path, "stage_succeeded", stage["id"], entry["message"])
-            progress = True
-            continue
-
-        if entry.get("status") == "waiting_external_job":
-            changed = check_waiting_slurm_stage(config, status, status_path, config_path, stage, dry_run)
-            progress = progress or changed
-            continue
-
-        if check_timeout(stage, entry):
-            mark_retry_or_failed(config, status, status_path, stage, "Stage timed out.")
-            progress = True
-
-    if stop_on_failure and any(
-        entry.get("status") == "failed" for entry in status.get("stages", {}).values()
-    ):
-        update_pipeline_status(config, status)
-        return progress
 
     while True:
-        ran_action = False
-        for stage in stages:
-            entry = get_status_entry(status, stage["id"])
-            if not stage_ready(stage, entry, status):
-                continue
-            if max_actions and actions >= max_actions:
-                update_pipeline_status(config, status)
-                return progress
-            if stage.get("kind") == "command":
-                changed = run_command_stage(config, status, status_path, config_path, stage, dry_run)
-            elif stage.get("kind") == "slurm":
-                changed = submit_slurm_stage(config, status, status_path, config_path, stage, dry_run)
-            else:
-                raise PipelineError(f"Unsupported stage kind: {stage.get('kind')}")
-            progress = progress or changed
-            ran_action = True
-            actions += 1
-            if stop_on_failure and any(
-                entry.get("status") == "failed" for entry in status.get("stages", {}).values()
-            ):
-                update_pipeline_status(config, status)
-                return progress
-            if dry_run:
-                update_pipeline_status(config, status)
-                return progress
-        if not ran_action:
+        if max_actions and actions >= max_actions:
+            break
+
+        stage = find_next_ready_stage(config, status)
+        if stage is None:
+            break
+
+        changed = execute_stage(
+            config, status, status_path, config_path, stage, dry_run
+        )
+        progress = progress or changed
+        actions += 1
+
+        if dry_run or pipeline_stops_on_failure(config, status):
             break
 
     update_pipeline_status(config, status)
@@ -742,14 +1005,18 @@ def print_summary(status: Dict[str, Any]) -> None:
     print(f"Pipeline: {status.get('pipeline_name')} [{status.get('status')}]")
     print(f"Updated: {status.get('updated_at')}")
     print("")
-    print(f"{'Stage':30} {'Status':22} {'Attempts':8} {'Job':12} Message")
-    print("-" * 96)
+    print(
+        f"{'Stage':28} {'Status':20} {'Attempts':8} {'Job':12} "
+        f"{'Slurm state':18} Message"
+    )
+    print("-" * 118)
     for stage_id, entry in status.get("stages", {}).items():
         print(
-            f"{stage_id[:30]:30} "
-            f"{str(entry.get('status', ''))[:22]:22} "
+            f"{stage_id[:28]:28} "
+            f"{str(entry.get('status', ''))[:20]:20} "
             f"{str(entry.get('attempts', 0))[:8]:8} "
             f"{str(entry.get('job_id') or '')[:12]:12} "
+            f"{str(entry.get('scheduler_state') or '')[:18]:18} "
             f"{entry.get('message', '')}"
         )
 
@@ -772,17 +1039,33 @@ def print_dry_run_preview(config: Dict[str, Any], status: Dict[str, Any], config
         if failure_marker_present(config, stage, config_path):
             print(f"[dry-run] would handle failure marker for stage {stage_id}.")
             return
-        if stage.get("skip_if_outputs_exist", True) and expected_success(config, stage, config_path):
-            print(f"[dry-run] would mark stage {stage_id} succeeded because expected outputs exist.")
-            return
         if entry.get("status") == "waiting_external_job":
-            if expected_success(config, stage, config_path):
-                print(f"[dry-run] would mark Slurm stage {stage_id} succeeded.")
-            elif stage.get("check_command") and entry.get("job_id"):
-                command = stage["check_command"].replace("{job_id}", str(entry["job_id"]))
-                print(f"[dry-run] would check Slurm stage {stage_id}: {command}")
+            if entry.get("job_id") and (
+                stage.get("check_command") or stage.get("accounting_command")
+            ):
+                if stage.get("check_command"):
+                    command = stage["check_command"].replace(
+                        "{job_id}", str(entry["job_id"])
+                    )
+                    print(f"[dry-run] would check active Slurm stage {stage_id}: {command}")
+                if stage.get("accounting_command"):
+                    command = stage["accounting_command"].replace(
+                        "{job_id}", str(entry["job_id"])
+                    )
+                    print(
+                        "[dry-run] would query Slurm accounting if inactive: "
+                        f"{command}"
+                    )
             else:
                 print(f"[dry-run] would keep waiting for stage {stage_id}.")
+            return
+        if stage.get("skip_if_outputs_exist", True) and restart_success_confirmed(
+            config, stage, config_path
+        ):
+            print(
+                f"[dry-run] would mark stage {stage_id} succeeded because expected "
+                "outputs and final success markers exist."
+            )
             return
         if stage_ready(stage, entry, preview):
             if stage.get("kind") == "command":

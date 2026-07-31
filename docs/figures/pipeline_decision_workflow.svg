@@ -1,0 +1,225 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2400" height="1400" viewBox="0 0 2400 1400">
+  <title>Deterministic decision workflow for persistent scientific pipeline execution</title>
+  <desc>
+    Publication flowchart showing periodic monitoring, stage-state refresh,
+    failure policy, ready-stage selection, local and Slurm execution,
+    Slurm accounting states, retry handling, status persistence, and restart.
+  </desc>
+  <defs>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6"
+            orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L12,6 L0,12 z" fill="#40566f"/>
+    </marker>
+    <marker id="arrow-red" markerWidth="12" markerHeight="12" refX="10" refY="6"
+            orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L12,6 L0,12 z" fill="#c44747"/>
+    </marker>
+    <style>
+      .title { font: 700 42px Arial, Helvetica, sans-serif; fill: #172b45; }
+      .subtitle { font: 400 24px Arial, Helvetica, sans-serif; fill: #526579; }
+      .section { font: 700 27px Arial, Helvetica, sans-serif; fill: #172b45; }
+      .node-title { font: 700 25px Arial, Helvetica, sans-serif; fill: #172b45; }
+      .node-text { font: 400 21px Arial, Helvetica, sans-serif; fill: #24384f; }
+      .small { font: 400 18px Arial, Helvetica, sans-serif; fill: #526579; }
+      .label { font: 700 19px Arial, Helvetica, sans-serif; fill: #40566f; }
+      .process { fill: #eaf2fb; stroke: #2f6bbd; stroke-width: 3; }
+      .decision { fill: #fff3e4; stroke: #e67e22; stroke-width: 3; }
+      .success { fill: #e9f6ea; stroke: #2e7d32; stroke-width: 3; }
+      .failure { fill: #fcebec; stroke: #c44747; stroke-width: 3; }
+      .waiting { fill: #f1f4f6; stroke: #687785; stroke-width: 3; }
+      .panel { fill: #fbfcfe; stroke: #b7c4d1; stroke-width: 2.5; }
+      .divider { stroke: #d2dbe4; stroke-width: 2; }
+      .arrow { fill: none; stroke: #40566f; stroke-width: 3; marker-end: url(#arrow); }
+      .arrow-red { fill: none; stroke: #c44747; stroke-width: 3; marker-end: url(#arrow-red); }
+      .guide { fill: none; stroke: #8193a6; stroke-width: 2.5; stroke-dasharray: 9 8; }
+      .number { fill: #1f5da8; }
+      .number-text { font: 700 23px Arial, Helvetica, sans-serif; fill: #ffffff; text-anchor: middle; }
+      .center { text-anchor: middle; }
+    </style>
+  </defs>
+
+  <rect x="0" y="0" width="2400" height="1400" fill="#ffffff"/>
+
+  <text x="1200" y="60" class="title center">Deterministic Decision Workflow for Persistent Pipeline Execution</text>
+  <text x="1200" y="100" class="subtitle center">
+    Each monitoring pass refreshes evidence, selects one valid action, records the outcome, and safely resumes
+  </text>
+
+  <!-- Core decision path -->
+  <rect x="70" y="155" width="275" height="125" rx="8" class="process"/>
+  <circle cx="105" cy="185" r="20" class="number"/>
+  <text x="105" y="193" class="number-text">1</text>
+  <text x="225" y="198" class="node-title center">Controller check</text>
+  <text x="208" y="234" class="node-text center">Cron, watch mode,</text>
+  <text x="208" y="263" class="node-text center">or manual restart</text>
+
+  <rect x="430" y="145" width="350" height="145" rx="8" class="process"/>
+  <circle cx="465" cy="177" r="20" class="number"/>
+  <text x="465" y="185" class="number-text">2</text>
+  <text x="620" y="190" class="node-title center">Refresh stage states</text>
+  <text x="605" y="226" class="node-text center">Artifacts, failures, timeouts,</text>
+  <text x="605" y="257" class="node-text center">retries, squeue, and sacct</text>
+
+  <polygon points="995,130 1145,217 995,304 845,217" class="decision"/>
+  <text x="995" y="199" class="node-title center">Terminal failure</text>
+  <text x="995" y="230" class="node-title center">and stop policy?</text>
+
+  <polygon points="1375,130 1525,217 1375,304 1225,217" class="decision"/>
+  <text x="1375" y="199" class="node-title center">Ready stage</text>
+  <text x="1375" y="230" class="node-title center">available?</text>
+
+  <polygon points="1745,130 1895,217 1745,304 1595,217" class="decision"/>
+  <text x="1745" y="199" class="node-title center">Selected</text>
+  <text x="1745" y="230" class="node-title center">stage type?</text>
+
+  <path d="M345 217 H430" class="arrow"/>
+  <path d="M780 217 H845" class="arrow"/>
+  <path d="M1145 217 H1225" class="arrow"/>
+  <text x="1182" y="197" class="label center">No</text>
+  <path d="M1525 217 H1595" class="arrow"/>
+  <text x="1560" y="197" class="label center">Yes</text>
+
+  <!-- Refresh rules panel -->
+  <rect x="70" y="370" width="760" height="710" rx="8" class="panel"/>
+  <text x="105" y="421" class="section">A. Evidence-based state refresh</text>
+  <path d="M105 443 H795" class="divider"/>
+
+  <rect x="105" y="475" width="690" height="105" rx="7" class="success"/>
+  <text x="130" y="514" class="node-title">Required artifacts present</text>
+  <text x="130" y="550" class="node-text">Mark stage succeeded and never select it again.</text>
+
+  <rect x="105" y="605" width="690" height="105" rx="7" class="failure"/>
+  <text x="130" y="644" class="node-title">Failure marker or controller timeout</text>
+  <text x="130" y="680" class="node-text">Apply retry policy; fail after attempts are exhausted.</text>
+
+  <rect x="105" y="735" width="690" height="305" rx="7" class="waiting"/>
+  <text x="130" y="777" class="node-title">Waiting Slurm stage</text>
+  <text x="145" y="819" class="node-text">1. Completion artifact present</text>
+  <text x="505" y="819" class="label">→ succeeded</text>
+  <text x="145" y="861" class="node-text">2. Visible in squeue</text>
+  <text x="505" y="861" class="label">→ keep waiting</text>
+  <text x="145" y="903" class="node-text">3. Absent from squeue; query sacct</text>
+  <text x="165" y="945" class="small">ACTIVE or accounting delayed</text>
+  <text x="505" y="945" class="label">→ keep waiting</text>
+  <text x="165" y="982" class="small">TIMEOUT / FAILED / CANCELLED / OOM</text>
+  <text x="650" y="982" class="label">→ retry/fail</text>
+  <text x="165" y="1019" class="small">COMPLETED but artifact missing</text>
+  <text x="650" y="1019" class="label">→ retry/fail</text>
+
+  <path d="M605 290 V340 H450 V370" class="guide"/>
+
+  <!-- Stop and no-ready outcomes -->
+  <rect x="870" y="390" width="250" height="100" rx="8" class="failure"/>
+  <text x="995" y="431" class="node-title center">Stop pipeline</text>
+  <text x="995" y="466" class="node-text center">Human review required</text>
+  <path d="M995 304 V390" class="arrow-red"/>
+  <text x="1025" y="350" class="label">Yes</text>
+
+  <polygon points="1375,380 1505,455 1375,530 1245,455" class="decision"/>
+  <text x="1375" y="444" class="node-title center">All stages</text>
+  <text x="1375" y="475" class="node-title center">finished?</text>
+  <path d="M1375 304 V380" class="arrow"/>
+  <text x="1405" y="348" class="label">No</text>
+
+  <rect x="1190" y="595" width="255" height="100" rx="8" class="success"/>
+  <text x="1317" y="636" class="node-title center">Pipeline succeeded</text>
+  <text x="1317" y="671" class="node-text center">All stages validated</text>
+
+  <rect x="1490" y="595" width="255" height="100" rx="8" class="waiting"/>
+  <text x="1617" y="636" class="node-title center">Wait</text>
+  <text x="1617" y="671" class="node-text center">No valid action yet</text>
+
+  <path d="M1335 530 V560 H1317 V595" class="arrow"/>
+  <text x="1270" y="558" class="label">Yes</text>
+  <path d="M1415 530 V560 H1617 V595" class="arrow"/>
+  <text x="1512" y="550" class="label">No</text>
+
+  <!-- Execution branches -->
+  <circle cx="1740" cy="381" r="20" class="number"/>
+  <text x="1740" y="389" class="number-text">3</text>
+  <text x="2035" y="390" class="section center">B. Execute exactly one valid stage action</text>
+
+  <rect x="1810" y="435" width="300" height="105" rx="8" class="process"/>
+  <text x="1960" y="477" class="node-title center">Run local command</text>
+  <text x="1960" y="512" class="node-text center">Increment attempt count</text>
+
+  <rect x="2115" y="435" width="240" height="105" rx="8" class="process"/>
+  <text x="2235" y="477" class="node-title center">Submit Slurm</text>
+  <text x="2235" y="512" class="node-text center">Store job ID</text>
+
+  <path d="M1700 282 V350 H1960 V435" class="arrow"/>
+  <text x="1808" y="340" class="label">Command</text>
+  <path d="M1790 282 V350 H2235 V435" class="arrow"/>
+  <text x="2130" y="340" class="label">Slurm</text>
+
+  <polygon points="1960,605 2095,682 1960,759 1825,682" class="decision"/>
+  <text x="1960" y="665" class="node-title center">Return code 0</text>
+  <text x="1960" y="696" class="node-title center">and artifacts valid?</text>
+
+  <rect x="2115" y="625" width="240" height="115" rx="8" class="waiting"/>
+  <text x="2235" y="666" class="node-title center">waiting_external_job</text>
+  <text x="2235" y="701" class="node-text center">Recheck in next pass</text>
+
+  <path d="M1960 540 V605" class="arrow"/>
+  <path d="M2235 540 V625" class="arrow"/>
+
+  <rect x="1770" y="825" width="260" height="100" rx="8" class="success"/>
+  <text x="1900" y="867" class="node-title center">Stage succeeded</text>
+  <text x="1900" y="902" class="node-text center">Release dependents</text>
+
+  <polygon points="2165,800 2295,875 2165,950 2035,875" class="decision"/>
+  <text x="2165" y="864" class="node-title center">Retries</text>
+  <text x="2165" y="895" class="node-title center">remaining?</text>
+
+  <path d="M1915 759 V790 H1900 V825" class="arrow"/>
+  <text x="1868" y="794" class="label">Yes</text>
+  <path d="M2005 759 V785 H2165 V800" class="arrow-red"/>
+  <text x="2080" y="778" class="label">No</text>
+
+  <rect x="1840" y="1015" width="250" height="100" rx="8" class="waiting"/>
+  <text x="1965" y="1057" class="node-title center">Mark retrying</text>
+  <text x="1965" y="1092" class="node-text center">Wait for retry delay</text>
+
+  <rect x="2130" y="1015" width="225" height="100" rx="8" class="failure"/>
+  <text x="2242" y="1057" class="node-title center">Mark failed</text>
+  <text x="2242" y="1092" class="node-text center">Apply stop policy</text>
+
+  <path d="M2125 950 V980 H1965 V1015" class="arrow"/>
+  <text x="2025" y="976" class="label">Yes</text>
+  <path d="M2205 950 V980 H2242 V1015" class="arrow-red"/>
+  <text x="2248" y="983" class="label">No</text>
+
+  <!-- Persistence and loop -->
+  <rect x="780" y="1210" width="980" height="115" rx="8" class="process"/>
+  <circle cx="825" cy="1247" r="20" class="number"/>
+  <text x="825" y="1255" class="number-text">4</text>
+  <text x="1270" y="1253" class="node-title center">Persist pipeline_status.json and append pipeline_journal.jsonl</text>
+  <text x="1270" y="1292" class="node-text center">
+    Schedule the next check unless the pipeline is succeeded, failed, or blocked
+  </text>
+
+  <path d="M995 490 V1165 H980 V1210" class="arrow"/>
+  <path d="M1317 695 V1165 H1130 V1210" class="arrow"/>
+  <path d="M1617 695 V1165 H1260 V1210" class="arrow"/>
+  <path d="M1900 925 V1165 H1400 V1210" class="arrow"/>
+  <path d="M2235 740 V1165 H1515 V1210" class="arrow"/>
+  <path d="M1965 1115 V1165 H1580 V1210" class="arrow"/>
+  <path d="M2242 1115 V1185 H1670 V1210" class="arrow-red"/>
+
+  <path d="M780 1267 H35 V217 H70" class="arrow"/>
+  <text x="250" y="1250" class="label">Next approved monitoring pass</text>
+
+  <!-- Legend -->
+  <rect x="1930" y="145" width="420" height="180" rx="8" class="panel"/>
+  <text x="1960" y="181" class="node-title">Visual key</text>
+  <rect x="1960" y="204" width="44" height="25" rx="4" class="process"/>
+  <text x="2020" y="224" class="small">Process</text>
+  <rect x="2140" y="204" width="44" height="25" rx="4" class="decision"/>
+  <text x="2200" y="224" class="small">Decision</text>
+  <rect x="1960" y="247" width="44" height="25" rx="4" class="success"/>
+  <text x="2020" y="267" class="small">Validated</text>
+  <rect x="2140" y="247" width="44" height="25" rx="4" class="failure"/>
+  <text x="2200" y="267" class="small">Failure</text>
+  <rect x="1960" y="290" width="44" height="25" rx="4" class="waiting"/>
+  <text x="2020" y="310" class="small">Waiting / retry</text>
+</svg>

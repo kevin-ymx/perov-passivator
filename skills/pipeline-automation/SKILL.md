@@ -37,15 +37,54 @@ is zero and configured expected outputs or success markers exist.
 
 Use `kind: "slurm"` for long GPU/HPC work. The controller optionally runs a
 render command, submits the job, stores the parsed job id, and later checks the
-job with `check_command`. A Slurm stage is marked succeeded when expected outputs
-or success markers exist.
+job with `check_command`. Add `accounting_command` with `sacct` so a job that
+leaves the active queue can be classified as completed, timed out, failed,
+cancelled, or out of memory. A Slurm stage is marked succeeded only when expected
+outputs and configured success markers exist after Slurm reports a terminal
+successful state. Output files that appear while the job is active do not
+complete the stage.
+
+## Completion Safety
+
+- Treat ordinary output files as potentially partial while their producer is
+  still running.
+- Create each success marker as the final operation after outputs have been
+  validated and atomically moved to their final paths.
+- `skip_if_outputs_exist: true` requires at least one configured
+  `success_markers` path. The controller skips work on restart only when all
+  expected outputs and all final markers exist.
+- Slurm `TIMEOUT` is a restartable interruption. It overrides partial output
+  files and moves the stage to `retrying`; when the configured attempt budget is
+  exhausted, the stage becomes `blocked` rather than `failed`.
+- Hard Slurm failures such as `FAILED`, `CANCELLED`, or `OUT_OF_MEMORY` use the
+  normal retry/failure policy.
+- For Slurm stages, configure `accounting_command` so `COMPLETED` can be
+  distinguished from terminal failure.
+
+## Next Action Rule
+
+Each controller check uses one simple loop:
+
+1. Refresh stage states from outputs, failures, timeouts, retries, and Slurm jobs.
+2. Stop if the configured failure policy requires it.
+3. Find the first pending or retry-ready stage whose dependencies succeeded.
+4. Run that stage locally or submit it to Slurm.
+
+`find_next_ready_stage()` contains the selection rule. The controller repeats
+the loop until no stage is ready or `max_actions_per_check` is reached. Finished
+stages are never selected again.
 
 ## Restart Behavior
 
 - Completed stages are skipped on later runs.
-- Stages with `skip_if_outputs_exist: true` are marked succeeded if their
-  expected outputs already exist.
+- Stages with `skip_if_outputs_exist: true` are marked succeeded on restart only
+  if their expected outputs and explicit final success markers already exist.
 - Failed stages retry until `retry.max_attempts` is exhausted.
+- Slurm `TIMEOUT` schedules a restart when another configured attempt is
+  available. Exhausted timeout restart budgets block the stage for policy
+  adjustment without classifying the scientific task as failed.
+- Hard Slurm states such as `FAILED`, `CANCELLED`, and `OUT_OF_MEMORY` use the
+  normal retry/failure policy.
 - Slurm stages can be resubmitted on restart after a failed or incomplete job.
 - The controller appends deterministic events to `pipeline_journal.jsonl`.
 
